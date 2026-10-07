@@ -1,0 +1,9 @@
+# Dữ liệu thô / trung gian — không đưa lên GitHub
+*.csv
+*.xlsx
+*.xls
+dash.json
+dash_data.json
+__pycache__/
+.work/
+index.prev.html

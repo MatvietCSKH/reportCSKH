@@ -1,0 +1,221 @@
+<title>Dashboard CSKH Mắt Việt</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+<style>
+/* Mắt Việt Design System tokens (deep blue + sunny yellow; secondary coral / turquoise / light blue / light yellow; Montserrat).
+   Layout: deep-blue brand band with logo + filters, then KPI row, 12-col chart grid, detail tables. */
+:root{
+  --deep-blue:#011e60; --sunny-yellow:#fddd00; --coral:#ed907a; --turquoise:#72c3d5; --light-blue:#8384ae; --light-yellow:#fadb65;
+  --bg:#f4f5f9; --surface:#ffffff; --surface-2:#e7e9f0; --line:#dfe2ec; --line-input:#b9bdd1;
+  --fg:#011e60; --fg-2:#3d4a7a; --fg-3:#8384ae;
+  --accent:#011e60; --accent-soft:#fff8dc; --accent-yellow:#fddd00;
+  --band:#011e60; --band-2:#0a1547; --band-fg:#ffffff; --band-fg-2:#c9cde3; --band-line:rgba(255,255,255,.2);
+  /* chart series — segment palette from the brand colours */
+  --s1:#011e60; --s2:#ed907a; --s3:#3aa7c0; --s4:#fddd00; --s5:#ed907a; --s6:#72c3d5; --s7:#8384ae; --s8:#e8bd00;
+  /* membership ramp: deep blue → light blue → yellow tint */
+  --t1:#011e60; --t2:#2c3f86; --t3:#8384ae; --t4:#72c3d5; --t5:#fadb65; --t6:#dfe2ec;
+  --good:#1d8a5a; --bad:#c8503a;
+  --font-body:"Montserrat",ui-sans-serif,system-ui,sans-serif;
+  --font-cond:"Montserrat",ui-sans-serif,system-ui,sans-serif;
+  --radius:12px; --shadow:rgba(14,29,97,.07) 0 1px 3px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#080f36; --surface:#0e1d61; --surface-2:#182a75; --line:rgba(255,255,255,.14); --line-input:rgba(255,255,255,.3);
+  --fg:#ffffff; --fg-2:#c9cde3; --fg-3:#9fa5c9; --accent:#fddd00; --accent-soft:#2a2f5a; --accent-yellow:#fddd00;
+  --band:#050b2a; --band-2:#080f36; --band-fg:#ffffff; --band-fg-2:#9fa5c9; --band-line:rgba(255,255,255,.14);
+  --s1:#aab6f2; --s2:#ed907a; --s3:#72c3d5; --s4:#fddd00; --s5:#ed907a; --s6:#72c3d5; --s7:#aab6f2; --s8:#e8bd00;
+  --t1:#fddd00; --t2:#fadb65; --t3:#72c3d5; --t4:#8384ae; --t5:#aab6f2; --t6:#3a4785;
+  --good:#5fd39b; --bad:#f39a84; --shadow:none; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#080f36; --surface:#0e1d61; --surface-2:#182a75; --line:rgba(255,255,255,.14); --line-input:rgba(255,255,255,.3);
+  --fg:#ffffff; --fg-2:#c9cde3; --fg-3:#9fa5c9; --accent:#fddd00; --accent-soft:#2a2f5a; --accent-yellow:#fddd00;
+  --band:#050b2a; --band-2:#080f36; --band-fg:#ffffff; --band-fg-2:#9fa5c9; --band-line:rgba(255,255,255,.14);
+  --s1:#aab6f2; --s2:#ed907a; --s3:#72c3d5; --s4:#fddd00; --s5:#ed907a; --s6:#72c3d5; --s7:#aab6f2; --s8:#e8bd00;
+  --t1:#fddd00; --t2:#fadb65; --t3:#72c3d5; --t4:#8384ae; --t5:#aab6f2; --t6:#3a4785;
+  --good:#5fd39b; --bad:#f39a84; --shadow:none; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body);font-size:14px;line-height:1.45}
+.wrap{max-width:1380px;margin:0 auto;padding-block:0 40px;padding-inline:16px}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:14px 22px;padding:18px 20px;margin-top:16px;border-radius:var(--radius) var(--radius) 0 0;background:var(--band);color:var(--band-fg);position:relative;overflow:hidden}
+header.top::after{content:"";position:absolute;right:-60px;top:-70px;width:220px;height:220px;border-radius:50%;background:var(--accent-yellow);opacity:.95}
+header.top>*{position:relative;z-index:1}
+header.top .logo{height:38px;width:auto;display:block}
+header.top .div{width:1px;align-self:stretch;background:var(--band-line)}
+header.top h1{margin:0;font-size:22px;font-weight:800;letter-spacing:-.2px;text-wrap:balance;color:var(--band-fg)}
+header.top .sub{color:var(--band-fg-2);font-size:12.5px;margin-top:4px;max-width:70ch}
+header.top .sub b{color:var(--deep-blue);background:var(--accent-yellow);padding:2px 8px;border-radius:999px;font-weight:700}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);padding:10px 14px;border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);box-shadow:var(--shadow);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}
+.tab{border:1px solid transparent;background:transparent;color:var(--fg-2);font:inherit;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer}
+.tab:hover{background:var(--surface-2)}
+.tab[aria-selected="true"]{background:var(--deep-blue);color:#fff;border-color:var(--deep-blue);box-shadow:inset 0 -3px 0 var(--accent-yellow)}
+.tab:focus-visible,.chip:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto}
+.filters label{font-size:11px;font-weight:700;color:var(--fg-3);text-transform:uppercase;letter-spacing:1.2px}
+select{font:inherit;font-weight:500;background:var(--surface);color:var(--fg);border:1px solid var(--line-input);border-radius:8px;padding:6px 10px}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{font:inherit;font-size:12px;padding:5px 9px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg-2);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--accent-yellow);border-color:var(--accent-yellow);color:#011e60;font-weight:600}
+.view{display:none;padding-top:16px}.view.on{display:block}
+h2{font-size:18px;font-weight:800;margin:8px 0 12px;letter-spacing:-.2px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h2::before{content:"";width:14px;height:14px;border-radius:50%;background:var(--accent-yellow);flex:0 0 auto}
+h2 small{color:var(--fg-3);font-weight:400;margin-left:8px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;min-width:0;box-shadow:var(--shadow)}
+.kpi .l{font-size:12px;font-weight:600;color:var(--fg-2)}
+.kpi .v{font-family:var(--font-cond);font-size:28px;font-weight:800;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums;letter-spacing:-.4px}
+.kpi .d{font-size:12px;color:var(--fg-3);margin-top:4px;font-variant-numeric:tabular-nums}
+.kpi .d .up{color:var(--good)} .kpi .d .dn{color:var(--bad)}
+.kpi.hero{background:var(--deep-blue);border-color:var(--deep-blue);color:#fff;position:relative;overflow:hidden}
+.kpi.hero::after{content:"";position:absolute;right:-38px;bottom:-44px;width:84px;height:84px;border-radius:50%;background:var(--accent-yellow)}
+.kpi.hero .l,.kpi.hero .d{color:#c9cde3;position:relative;z-index:1}.kpi.hero .v{font-size:40px;color:#fff;position:relative;z-index:1}.kpi.hero .v small{color:#c9cde3!important}
+.kpi .sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;margin-bottom:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 16px 12px;min-width:0;box-shadow:var(--shadow)}
+.card .ttl{font-size:14px;font-weight:700;margin:0 0 2px;color:var(--fg)}
+.card .note{font-size:12px;color:var(--fg-3);margin:0 0 8px}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c6{grid-column:span 6}.c4{grid-column:span 4}.c3{grid-column:span 3}
+@media (max-width:900px){.c8,.c6,.c4,.c3{grid-column:span 12}}
+.ch{position:relative;height:280px}.ch.s{height:220px}.ch.t{height:320px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--fg-2);margin:6px 0 4px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--fg-3);font-weight:700;background:var(--surface)}
+th:first-child,td:first-child{text-align:left}
+tr.tot td{font-weight:600;border-top:2px solid var(--line)}
+td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);vertical-align:middle;margin-left:6px;opacity:.75}
+.def{background:var(--surface-2);border-radius:var(--radius);padding:12px 16px;font-size:13px;color:var(--fg-2);margin-bottom:16px}
+.def b{color:var(--fg)}
+.def summary{cursor:pointer;font-weight:600;color:var(--fg);list-style:none;display:flex;align-items:center;gap:8px}
+.def summary::before{content:"";width:7px;height:7px;border-right:2px solid var(--fg-2);border-bottom:2px solid var(--fg-2);transform:rotate(-45deg);transition:transform .15s}
+.def[open] summary::before{transform:rotate(45deg)}
+.def summary::-webkit-details-marker{display:none}
+.def[open] summary{margin-bottom:6px}
+.def .src{margin-top:10px}
+.def ul{margin:6px 0 0;padding-left:18px}
+.def li{margin:2px 0}
+.src{font-size:12px;color:var(--fg-3);margin-top:18px;line-height:1.6}
+.pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:600}.pill.ok{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}.pill.mid{background:color-mix(in srgb,var(--s4) 22%,transparent);color:var(--fg)}.pill.no{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.empty{color:var(--fg-3);font-size:13px;padding:30px;text-align:center}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+<header class="top">
+  <img class="logo" src="data:image/png;base64,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" alt="Mắt Việt">
+  <span class="div" aria-hidden="true"></span>
+  <div>
+    <h1>Dashboard CSKH</h1>
+    <div class="sub"><b id="plabel"></b> · Phân tích khách hàng · Thẻ thành viên · Chương trình sinh nhật — nguồn: BC21 (Ebiz) &amp; CT CRM. Số liệu chưa trừ VAT. Cập nhật <span id="gen"></span>.</div>
+  </div>
+</header>
+
+<div class="bar">
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-v="over" aria-selected="true">Tổng quan</button>
+    <button class="tab" role="tab" data-v="seg">Phân tích KH 12M</button>
+    <button class="tab" role="tab" data-v="ttv">Thẻ thành viên</button>
+    <button class="tab" role="tab" data-v="sn">Sinh nhật KH</button>
+  </div>
+  <div class="filters">
+    <label for="fType">Kỳ</label>
+    <select id="fType"><option value="month">Tháng</option><option value="quarter">Quý</option><option value="year">Năm</option><option value="mtd">MTD (tháng gần nhất)</option><option value="ytd">YTD (từ đầu năm)</option><option value="all">Tất cả</option></select>
+    <span id="wYear"><select id="fYear"></select></span>
+    <span id="wMonth"><select id="fMonth"></select></span>
+    <span id="wQuarter"><select id="fQuarter"><option value="1">Quý 1</option><option value="2">Quý 2</option><option value="3">Quý 3</option><option value="4">Quý 4</option></select></span>
+    <label for="fStore">Cửa hàng</label>
+    <select id="fStore"></select>
+    <label>Model</label>
+    <div class="chips" id="fModel"></div>
+  </div>
+</div>
+
+<!-- ============ TỔNG QUAN ============ -->
+<section class="view on" id="v-over">
+  <div class="kpis" id="over-kpis"></div>
+  <div class="grid">
+    <div class="card c8"><p class="ttl">Doanh số theo tháng (triệu đồng)</p><p class="note">Xếp chồng theo nhóm KH · khi chọn kỳ 1 tháng, biểu đồ hiện 12 tháng gần nhất</p><div class="ch"><canvas id="c-over-rev"></canvas></div></div>
+    <div class="card c4"><p class="ttl">Cơ cấu doanh số theo nhóm KH</p><p class="note">Kỳ đang chọn</p><div class="ch"><canvas id="c-over-segpie"></canvas></div><div class="legend" id="lg-over-segpie"></div></div>
+    <div class="card c6"><p class="ttl">Số bill theo tháng</p><p class="note">Toàn hệ thống theo filter model</p><div class="ch s"><canvas id="c-over-bills"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Tỷ lệ đổi voucher sinh nhật (CR) theo tháng</p><p class="note">CR = số KH dùng voucher / số KH được gửi voucher</p><div class="ch s"><canvas id="c-over-cr"></canvas></div></div>
+  </div>
+  <details class="def"><summary>Xem định nghĩa &amp; nguồn dữ liệu</summary>
+    <ul>
+      <li><b>Customer</b> = bill có định danh bằng số điện thoại (Mã KH). <b>Buyer (khách lẻ)</b> = bill không định danh (Mã KH = KL), gồm phần lớn đơn Shopee/TikTok và khách lẻ tại cửa hàng.</li>
+      <li><b>KH mới</b>: chưa từng phát sinh đơn hàng trước đây (xét toàn bộ lịch sử từ 2018). <b>Quay lại ≤12T</b>: 2 đơn liên tiếp gần nhất cách nhau ≤ 12 tháng. <b>KH cũ &gt;12T</b> (Reactivated): đơn trước đó cách &gt; 12 tháng.</li>
+      <li>Một KH mua nhiều bill trong tháng được tính 1 lần theo trạng thái của bill đầu tiên trong tháng. ATV = doanh số / số KH (Customer) hoặc / số bill (Buyer).</li>
+      <li><b>Thẻ thành viên</b> lấy theo hạng thẻ ghi trên bill (Diamond15 · Platinum10 · Gold7 · Silver5 · Member · Non-MB). Hạng “Member” chỉ có từ 2026; trên file BC21 các tháng T1–T5/2026 hạng thẻ chỉ được ghi cho một phần bill nên số thẻ thành viên giai đoạn này thấp hơn thực tế.</li>
+      <li><b>Bộ lọc kỳ</b>: KPI và các bảng “kỳ đang chọn” tính đúng kỳ (tháng / quý / năm / MTD = tháng dữ liệu gần nhất / YTD = từ T1 đến tháng gần nhất). Khi chọn kỳ 1 tháng, biểu đồ và bảng theo tháng hiện 12 tháng gần nhất để so sánh. Bộ lọc cửa hàng áp dụng cho mọi biểu đồ/bảng trừ giới tính, độ tuổi, nguồn/loại voucher, AM.</li>
+      <li><b>CT sinh nhật</b>: “Gửi” = số KH nhận voucher sinh nhật trong tháng; “Dùng” = KH có phát sinh thanh toán bằng voucher đó; CR = Dùng / Gửi.</li>
+      <li><b>CH liên hệ KH</b>: mỗi tháng CSKH chia danh sách sinh nhật cho từng cửa hàng (file Store - Data CSKH); dòng nào CH điền NV gọi / ngày / hình thức / ghi chú thì tính là “có liên hệ”. Đối chiếu SĐT + tháng với bảng SN2023 để biết KH đó có dùng voucher hay không.</li>
+    </ul>
+    <p class="src" id="src"></p>
+  </details>
+</section>
+
+<!-- ============ PHÂN TÍCH KH 12M ============ -->
+<section class="view" id="v-seg">
+  <div class="kpis" id="seg-kpis"></div>
+  <div class="grid">
+    <div class="card c8"><p class="ttl">Số khách hàng theo nhóm, theo tháng</p><p class="note">Customer theo trạng thái; Buyer tính theo bill</p><div class="ch"><canvas id="c-seg-month"></canvas></div><div class="legend" id="lg-seg"></div></div>
+    <div class="card c4"><p class="ttl">Tỷ trọng doanh số: KH mới vs KH cũ</p><p class="note">KH cũ = Quay lại ≤12T + KH cũ &gt;12T</p><div class="ch"><canvas id="c-seg-pie"></canvas></div><div class="legend" id="lg-seg-pie"></div></div>
+    <div class="card c6"><p class="ttl">% nhóm KH theo tháng</p><p class="note">Trên tổng số Customer có định danh</p><div class="ch"><canvas id="c-seg-pct"></canvas></div></div>
+    <div class="card c6"><p class="ttl">ATV theo nhóm KH (triệu đồng)</p><p class="note">Doanh số / số KH trong tháng</p><div class="ch"><canvas id="c-seg-atv"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Nhóm KH theo giới tính</p><p class="note">Số KH, theo năm đang chọn</p><div class="ch s"><canvas id="c-seg-gt"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Nhóm KH theo độ tuổi</p><p class="note">Số KH, theo năm đang chọn</p><div class="ch s"><canvas id="c-seg-age"></canvas></div></div>
+    <div class="card c12"><p class="ttl">Bảng theo tháng</p><p class="note">Số KH · doanh số (triệu) · ATV (triệu) từng nhóm</p><div class="tw" id="t-seg-month"></div></div>
+    <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Theo kỳ, cửa hàng và model đang chọn ở bộ lọc — sắp theo tổng doanh số</p><div class="tw" id="t-seg-store"></div></div>
+  </div>
+</section>
+
+<!-- ============ THẺ THÀNH VIÊN ============ -->
+<section class="view" id="v-ttv">
+  <div class="kpis" id="ttv-kpis"></div>
+  <div class="grid">
+    <div class="card c8"><p class="ttl">Doanh số thẻ thành viên hàng tháng (triệu đồng)</p><p class="note">Xếp chồng theo hạng thẻ · Lưu ý: file BC21 T1–T5/2026 chỉ ghi hạng thẻ cho một phần bill, hạng “Member” được ghi nhận đầy đủ từ T6/2026</p><div class="ch"><canvas id="c-ttv-month"></canvas></div><div class="legend" id="lg-ttv"></div></div>
+    <div class="card c4"><p class="ttl">Tỷ lệ doanh số Member vs Non-member</p><p class="note">Kỳ đang chọn</p><div class="ch"><canvas id="c-ttv-pie"></canvas></div><div class="legend" id="lg-ttv-pie"></div></div>
+    <div class="card c6"><p class="ttl">Số KH theo hạng thẻ, theo tháng</p><p class="note">Không gồm Non-MB</p><div class="ch"><canvas id="c-ttv-cust"></canvas></div></div>
+    <div class="card c6"><p class="ttl">ATV theo hạng thẻ (triệu đồng)</p><p class="note">Kỳ đang chọn</p><div class="ch"><canvas id="c-ttv-atv"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Giới tính theo hạng thẻ</p><p class="note">% số KH, năm đang chọn</p><div class="ch s"><canvas id="c-ttv-gt"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Độ tuổi theo hạng thẻ</p><p class="note">% số KH, năm đang chọn</p><div class="ch s"><canvas id="c-ttv-age"></canvas></div></div>
+    <div class="card c12"><p class="ttl">Bảng theo hạng thẻ</p><p class="note">Kỳ đang chọn</p><div class="tw" id="t-ttv"></div></div>
+    <div class="card c12"><p class="ttl">Hạng thẻ × nhóm KH</p><p class="note">Số KH theo năm đang chọn (2025 trở đi)</p><div class="tw" id="t-ttv-seg"></div></div>
+    <div class="card c12"><p class="ttl">Thẻ thành viên theo cửa hàng</p><p class="note">Doanh số (triệu) từng hạng — theo kỳ, cửa hàng và model đang chọn</p><div class="tw" id="t-ttv-store"></div></div>
+  </div>
+</section>
+
+<!-- ============ SINH NHẬT ============ -->
+<section class="view" id="v-sn">
+  <div class="kpis" id="sn-kpis"></div>
+  <div class="grid">
+    <div class="card c8"><p class="ttl">Voucher gửi vs KH sử dụng, theo tháng</p><p class="note">Cột xám: số KH được gửi · cột xanh: số KH đã dùng</p><div class="ch"><canvas id="c-sn-month"></canvas></div><div class="legend" id="lg-sn"></div></div>
+    <div class="card c4"><p class="ttl">CR theo tháng (%)</p><p class="note">Dùng / Gửi</p><div class="ch"><canvas id="c-sn-cr"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Doanh số từ voucher sinh nhật (triệu đồng)</p><p class="note">Theo tháng</p><div class="ch s"><canvas id="c-sn-rev"></canvas></div></div>
+    <div class="card c6"><p class="ttl">CR theo Model &amp; AM</p><p class="note">Năm đang chọn</p><div class="ch s"><canvas id="c-sn-model"></canvas></div></div>
+    <div class="card c6"><p class="ttl">KH dùng voucher theo giới tính</p><p class="note">Năm đang chọn</p><div class="ch s"><canvas id="c-sn-gt"></canvas></div></div>
+    <div class="card c6"><p class="ttl">KH dùng voucher theo độ tuổi</p><p class="note">Năm đang chọn</p><div class="ch s"><canvas id="c-sn-age"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Theo kênh gửi (Nguồn)</p><p class="note">Năm đang chọn</p><div class="tw" id="t-sn-nguon"></div></div>
+    <div class="card c6"><p class="ttl">Theo loại voucher</p><p class="note">Năm đang chọn</p><div class="tw" id="t-sn-voucher"></div></div>
+    <div class="card c12"><p class="ttl">Bảng theo tháng</p><div class="tw" id="t-sn-month"></div></div>
+    <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Theo kỳ, cửa hàng và model đang chọn ở bộ lọc — sắp theo doanh số voucher</p><div class="tw" id="t-sn-store"></div></div>
+  </div>
+  <h2 id="ct-h">Cửa hàng chủ động liên hệ KH sinh nhật <small>từ file Store - Data CSKH (CH ghi nhận NV gọi / ngày / hình thức)</small></h2>
+  <div class="kpis" id="ct-kpis"></div>
+  <div class="grid">
+    <div class="card c6"><p class="ttl">Tỷ lệ KH trong danh sách được CH liên hệ, theo tháng</p><p class="note">% dòng có ghi nhận liên hệ trên tổng danh sách CH nhận</p><div class="ch s"><canvas id="c-ct-pct"></canvas></div></div>
+    <div class="card c6"><p class="ttl">CR: có liên hệ vs không liên hệ, theo tháng</p><p class="note">% KH dùng voucher sinh nhật trong từng nhóm</p><div class="ch s"><canvas id="c-ct-cr"></canvas></div><div class="legend" id="lg-ct-cr"></div></div>
+    <div class="card c6"><p class="ttl">Theo hình thức liên hệ</p><p class="note">Năm đang chọn — hình thức lấy từ ghi chú của CH</p><div class="tw" id="t-ct-method"></div></div>
+    <div class="card c6"><p class="ttl">Nhân viên liên hệ nhiều nhất</p><p class="note">Năm đang chọn — theo tên NV cửa hàng ghi trong file</p><div class="tw" id="t-ct-staff"></div></div>
+    <div class="card c12"><p class="ttl">Theo cửa hàng: CH nào làm, CH nào chưa</p><p class="note">Theo kỳ đang chọn — “Chưa thực hiện” khi tỷ lệ liên hệ dưới 5%. Thiếu file của 4 CH: 220, 226, 311, 403 (chưa tải về máy)</p><div class="tw" id="t-ct-store"></div></div>
+  </div>
+</section>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<script id="data" type="application/json">__DATA__</script>
+<script>
+/* __APP__ */
+</script>
