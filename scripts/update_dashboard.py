@@ -171,13 +171,22 @@ def compute(wait=False):
         print("COMPUTE", open(status).read().strip())
 
 def clear_locks(repo, min_age=600):
-    """Thư mục kết nối không cho git tự xoá file .lock -> đổi tên chúng sang .git/stale-*."""
+    """Thư mục kết nối có thể không cho git tự xoá file .lock -> đổi tên chúng sang .git/stale-*.
+    Đồng thời dọn rác cũ (stale-* và objects/*/tmp_obj_*) khi phiên chạy có quyền xoá."""
     for lk in (".git/index.lock", ".git/HEAD.lock", ".git/objects/maintenance.lock", ".git/refs/heads/main.lock"):
         lp = os.path.join(repo, lk)
         if os.path.exists(lp) and time.time() - os.path.getmtime(lp) >= min_age:
             dst = os.path.join(repo, ".git", f"stale-{os.path.basename(lp)}-{int(time.time()*1000)}")
             try: os.remove(lp)
             except OSError: os.replace(lp, dst)
+    old = time.time() - 3600                                  # chỉ đụng rác cũ hơn 1 giờ
+    junk = glob.glob(os.path.join(repo, ".git", "stale-*")) + glob.glob(os.path.join(repo, ".git", "objects", "*", "tmp_obj_*"))
+    gone = 0
+    for f in junk:
+        try:
+            if os.path.getmtime(f) < old: os.remove(f); gone += 1
+        except OSError: pass                                  # phiên không có quyền xoá -> để nguyên
+    if gone: print(f"  dọn {gone} file rác trong .git")
 
 def build():
     st = open(os.path.join(WORK, "compute.status")).read().strip() if os.path.exists(os.path.join(WORK, "compute.status")) else "done"
