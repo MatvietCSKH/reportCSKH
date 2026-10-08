@@ -491,11 +491,101 @@ function initKM(){
 }
 initKM();
 
+/* ================= XNBH — BNR & xác nhận bảo hành ================= */
+const X = D.xnbh || {rows:[],months:[],stores:{},mode:{},mism:{},src:''};
+const XSM = X.stores || {};
+const xAgg = () => ({kh:0,sets:0,xnb:0,xno:0,npsb:0,npso:0,mism:0,rows:0});
+function xSum(list){ const t=xAgg(); for(const r of list) for(const k in t) t[k]+=r[k]||0; return t; }
+const xOK = r => (!state.store || r.kho===state.store) && (!r.model || state.models.has(r.model) || !MODELS.includes(r.model));
+const xProf = (kho,f) => (XSM[kho]||{})[f] || '–';
+const xRate = t => t.kh ? 100*t.xnb/t.kh : 0;
+
+function renderXNBH(){
+  const S1=cssv('--s1'), S3=cssv('--s3'), GREY=cssv('--t6'), ACC=cssv('--accent'), BAD=cssv('--bad');
+  const all = X.rows.filter(xOK);
+  const ms  = X.months.filter(inChart);
+  const pm  = X.months.filter(inPeriod);
+  const cur = all.filter(r=>inPeriod(r.month));
+  const T   = xSum(cur);
+  const byM = {}; for(const r of all.filter(x=>inChart(x.month))){ const g=byM[r.month]||(byM[r.month]=xAgg()); for(const k in g) g[k]+=r[k]||0; }
+  const G = m => byM[m] || xAgg();
+
+  if (!X.rows.length || !pm.length){
+    el('xn-kpis').innerHTML = '';
+    el('xn-warn').innerHTML = '<b>Chưa có dữ liệu BNR cho kỳ này.</b> Dữ liệu XNBH hiện có từ ' + (X.months[0]||'–') + ' đến ' + (X.months[X.months.length-1]||'–') + '.';
+    ['t-xn-store','t-xn-month'].forEach(i=>el(i).innerHTML='<div class="empty">Không có dữ liệu cho kỳ này</div>');
+    ['c-xn-month','c-xn-pie','c-xn-am','c-xn-tier'].forEach(i=>{ if(charts[i]){charts[i].destroy(); delete charts[i];} });
+    el('xn-src').textContent = X.src || '–';
+    return;
+  }
+
+  el('xn-kpis').innerHTML = [
+    kpi('Tỷ lệ XNBH / KH nhận BNR', fP1(xRate(T)), fmtN(T.xnb)+' / '+fmtN(T.kh)+' KH nhận BNR', null, true),
+    kpi('KH nhận BNR', fmtN(T.kh), periodLabel()+' · TB '+fmtN(pm.length?T.kh/pm.length:0)+'/tháng', S1),
+    kpi('Số BNR đã tặng', fmtN(T.sets), (T.kh? (T.sets/T.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–')+' bộ / khách'),
+    kpi('Lượt XNBH / NPS', fmtN(T.xnb+T.xno), fmtN(T.xno)+' lượt không kèm BNR', S3),
+    kpi('KH nhận BNR chưa XNBH', fmtN(T.kh-T.xnb), fP1(T.kh?100*(T.kh-T.xnb)/T.kh:0)+' — dư địa khai thác', GREY),
+  ].join('');
+
+  const grantMs = pm.filter(m=>(X.mode[m]||'flag')==='grant');
+  const mismT   = pm.reduce((a,m)=>a+((X.mism||{})[m]||0),0);
+  el('xn-warn').innerHTML = grantMs.length
+    ? '<b>Cảnh báo cách ghi dữ liệu — '+grantMs.map(mLbl).join(', ')+'.</b> Trong (các) tháng này mọi dòng có SL KH đều mang XNBH = Yes, nên cột XNBH chỉ lặp lại việc “có nhận BNR hay không” và <b>không cho biết ai đã xác nhận bảo hành</b>. Tỷ lệ của các tháng đó sẽ đội lên gần 100% — cần sửa file nguồn trước khi dùng con số này.'
+    : mismT
+    ? '<b>Cột XNBH và cột NPS đang lệch nhau ở '+fmtN(mismT)+' dòng</b> trong kỳ này. Báo cáo lấy cột XNBH làm chuẩn; nên rà lại file nguồn để hai cột khớp.'
+    : 'Cột <b>XNBH</b> và cột <b>NPS</b> khớp nhau hoàn toàn trong kỳ này ('+fmtN(T.xnb+T.xno)+' lượt) nên hai chỉ số báo cáo chung. Trong đó <b>'+fmtN(T.xno)+'</b> lượt đến từ khách không nhận BNR — các lượt này không nằm trong mẫu số của tỷ lệ chuyển đổi.';
+
+  const lbl = ms.map(mLbl);
+  mk('c-xn-month',{data:{labels:lbl,datasets:[
+      barDs('KH nhận BNR',ms.map(m=>G(m).kh),S1,{borderWidth:0,yAxisID:'y'}),
+      barDs('Đã XNBH',ms.map(m=>G(m).xnb),S3,{borderWidth:0,yAxisID:'y'}),
+      lineDs('% đã XNBH',ms.map(m=>xRate(G(m))),ACC,{yAxisID:'y1'})]},
+    options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.type==='line'?` ${c.dataset.label}: ${c.parsed.y.toLocaleString('vi-VN',{maximumFractionDigits:1})}%`:` ${c.dataset.label}: ${fmtN(c.parsed.y)}`}}},
+      scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>fmtN(v)}},y1:{position:'right',beginAtZero:true,max:100,grid:{display:false},ticks:{callback:v=>v+'%'}}}}});
+  legend('lg-xn',[['KH nhận BNR',S1],['Trong đó đã XNBH',S3],['% KH nhận BNR đã XNBH',ACC]]);
+
+  mk('c-xn-pie',{type:'doughnut',data:{labels:['XNBH kèm BNR','XNBH không kèm BNR'],datasets:[{data:[T.xnb,T.xno],backgroundColor:[S3,GREY],borderColor:cssv('--surface'),borderWidth:2}]},
+    options:{cutout:'58%',plugins:{tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtN(c.parsed)} (${fmtP(c.parsed,T.xnb+T.xno)})`}}}}});
+  legend('lg-xn-pie',[['XNBH kèm BNR',S3],['XNBH không kèm BNR',GREY]]);
+
+  const avg = xRate(T);
+  const byKey = f => { const o={}; for(const r of cur){ const k=xProf(r.kho,f); const g=o[k]||(o[k]=xAgg()); for(const kk in g) g[kk]+=r[kk]||0; } return o; };
+  const amG = byKey('am'), amK = Object.keys(amG).filter(k=>k!=='–'&&k!=='Online'&&k!=='ZNS_CTA'&&amG[k].kh).sort((a,b)=>xRate(amG[b])-xRate(amG[a]));
+  mk('c-xn-am',{type:'bar',data:{labels:amK.map(k=>'AM '+k),datasets:[barDs('% đã XNBH',amK.map(k=>xRate(amG[k])),amK.map(k=>xRate(amG[k])>=avg?S3:BAD),{borderWidth:0,maxBarThickness:30})]},
+    options:{indexAxis:'y',plugins:{tooltip:{callbacks:{label:c=>{const g=amG[amK[c.dataIndex]];return ` ${fmtN(g.xnb)}/${fmtN(g.kh)} KH · ${c.parsed.x.toFixed(1)}% (TB ${avg.toFixed(1)}%)`;}}}},scales:{x:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}},y:{}}}});
+
+  const tierG = byKey('tier'), areaG = byKey('khuvuc');
+  const TK = ['Platinum','Gold','Silver'].filter(k=>tierG[k]&&tierG[k].kh);
+  const AK = Object.keys(areaG).filter(k=>k!=='–'&&k!=='Online'&&k!=='ZNS_CTA'&&areaG[k].kh).sort((a,b)=>areaG[b].kh-areaG[a].kh).slice(0,8);
+  const tLbl = [...TK.map(k=>'Tier: '+k), ...AK.map(k=>'KV: '+k)];
+  const tVal = [...TK.map(k=>xRate(tierG[k])), ...AK.map(k=>xRate(areaG[k]))];
+  const tG   = [...TK.map(k=>tierG[k]), ...AK.map(k=>areaG[k])];
+  mk('c-xn-tier',{type:'bar',data:{labels:tLbl,datasets:[barDs('% đã XNBH',tVal,tLbl.map((l,i)=>l.startsWith('Tier')?ACC:(tVal[i]>=avg?S3:BAD)),{borderWidth:0,maxBarThickness:18})]},
+    options:{indexAxis:'y',plugins:{tooltip:{callbacks:{label:c=>` ${fmtN(tG[c.dataIndex].xnb)}/${fmtN(tG[c.dataIndex].kh)} KH · ${c.parsed.x.toFixed(1)}%`}}},scales:{x:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}},y:{}}}});
+
+  const stG = {}; for(const r of cur){ const g=stG[r.kho]||(stG[r.kho]=xAgg()); for(const k in g) g[k]+=r[k]||0; }
+  const srow = Object.entries(stG).sort((a,b)=>b[1].kh-a[1].kh);
+  const smax = srow.length? srow[0][1].kh : 0;
+  const pillX = p => p>=avg ? '<span class="pill ok">Trên TB</span>' : p>=avg/2 ? '<span class="pill mid">Dưới TB</span>' : '<span class="pill no">Rất thấp</span>';
+  table('t-xn-store',['Cửa hàng','Tier','Khu vực','AM','KH nhận BNR','BNR tặng','BNR/KH','Đã XNBH','% đã XNBH','XNBH lẻ','Đánh giá'],
+    srow.map(([kho,g])=>[kho,xProf(kho,'tier'),xProf(kho,'khuvuc'),xProf(kho,'am'),bar(fmtN(g.kh),smax),fmtN(g.sets),g.kh?(g.sets/g.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–',fmtN(g.xnb),g.kh?fP1(xRate(g)):'–',fmtN(g.xno),g.kh?pillX(xRate(g)):'–']),
+    ['Tổng '+srow.length+' CH','','','',fmtN(T.kh),fmtN(T.sets),T.kh?(T.sets/T.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–',fmtN(T.xnb),fP1(avg),fmtN(T.xno),'']);
+
+  const allM = X.months.filter(m=>all.some(r=>r.month===m));
+  const byMa = {}; for(const r of all){ const g=byMa[r.month]||(byMa[r.month]=xAgg()); for(const k in g) g[k]+=r[k]||0; }
+  const Ta = xSum(all);
+  table('t-xn-month',['Tháng','KH nhận BNR','BNR tặng','BNR/KH','Đã XNBH','% đã XNBH','XNBH không kèm BNR','XNBH lệch NPS'],
+    allM.map(m=>{const g=byMa[m];return [mLbl(m)+(X.mode[m]==='grant'?' <span class="pill no">cột XNBH không dùng được</span>':''),fmtN(g.kh),fmtN(g.sets),g.kh?(g.sets/g.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–',fmtN(g.xnb),g.kh?fP1(xRate(g)):'–',fmtN(g.xno),fmtN((X.mism||{})[m]||0)];}),
+    ['Tổng '+allM.length+' tháng',fmtN(Ta.kh),fmtN(Ta.sets),Ta.kh?(Ta.sets/Ta.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–',fmtN(Ta.xnb),fP1(xRate(Ta)),fmtN(Ta.xno),fmtN(Ta.mism)]);
+
+  el('xn-src').textContent = X.src || '–';
+}
+
 /* ---------- wiring ---------- */
 function render(){
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
-  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO})[state.view]();
+  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,xnbh:renderXNBH})[state.view]();
   el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
 }
