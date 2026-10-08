@@ -7,7 +7,7 @@ COLS={"date":1,"bill":2,"kho":7,"makh":14,"nhom":24,"sl":31,"slt":32,"tien":34,"
  "ctkm_t":52,"ctkm_tn":53,"nhom_t":54,"ctkm":56,"ctkm_n":57,"ctkm_d":58,"csgg":64,"csgg_n":65,
  "mud":69,"mud_n":70,"mud_ct":71,"mud_pct":73,"mud_amt":74,"ot":86,"ot_n":87,"ot_ct":88,"ott":95,"ott_n":96,"ott_ct":97,"ott_amt":100,
  "combo":104,"combo_n":105,"combo_ct":106,"card":116,"card_amt":123,"vc":126,"vc_n":127,"qt":135,"qt_n":136,"qt_ct":137,"dctk":144,"dctk_n":145,"dctk_ct":146,
- "mud_from":78,"mud_to":79,"ot_amt":91,"ot_from":93,"ot_to":94,"ott_pct":99,"ott_from":102,"ott_to":103,"ckvc":161,"net":162}
+ "mud_from":78,"mud_to":79,"ot_amt":91,"ot_from":93,"ot_to":94,"ott_pct":99,"ott_from":102,"ott_to":103,"truocvat":158,"vat":159,"ckvc":161,"net":162}
 def val(v):
     if v is None: return ""
     if isinstance(v,datetime.datetime): return v.strftime("%Y-%m-%d")

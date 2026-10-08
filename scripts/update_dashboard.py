@@ -15,8 +15,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)                       # bao-cao-cskh/ (gốc repo)
 WORK = os.path.join(ROOT, ".work")
 STATE = os.path.join(WORK, "state.json")
-OD = glob.glob(os.path.expanduser("~/mnt/OneDrive - Mat Viet Group"))[0]
-BAOCAO = glob.glob(os.path.join(OD, "B*o c*o"))[0]
+_od = glob.glob(os.path.expanduser("~/mnt/OneDrive - Mat Viet Group"))
+OD = _od[0] if _od else ""
+_bc = glob.glob(os.path.join(OD, "B*o c*o")) if OD else []
+BAOCAO = _bc[0] if _bc else ""                      # rỗng khi phiên không gắn thư mục OneDrive
+HAS_OD = bool(BAOCAO)
 BC21 = os.path.join(BAOCAO, "Data BC21")
 STORE_DIR = os.path.join(OD, "Store - Data CSKH", "2024")
 CTCRM = os.path.join(BAOCAO, "CT CRM.2023.xlsx")
@@ -25,6 +28,10 @@ MONTH_FILE = re.compile(r"^T\d{1,2}(\.\d{2,4})?( ?\d)?\.(xlsx|xls)$", re.I)
 
 def sources():
     out = {}
+    if not HAS_OD:                                   # không có OneDrive -> chỉ theo dõi nguồn cục bộ (BNR)
+        for f in sorted(glob.glob(os.path.join(os.path.dirname(ROOT), "BNR*.xlsx"))):
+            if not os.path.basename(f).startswith("~$"): out["xnbh:" + os.path.basename(f)] = f
+        return out
     for d in sorted(glob.glob(os.path.join(BC21, "Data 20[2-9][0-9]"))):
         if int(d[-4:]) < 2026: continue          # 2025-T9 trở về trước đã có trong V8
         for f in sorted(os.listdir(d)):
@@ -34,6 +41,8 @@ def sources():
         p = os.path.join(BC21, f)
         if os.path.exists(p): out["bc21:" + f] = p
     out["sn:CT CRM.2023.xlsx"] = CTCRM
+    for f in sorted(glob.glob(os.path.join(os.path.dirname(ROOT), "BNR*.xlsx"))):   # tab XNBH (BNR & NPS)
+        if not os.path.basename(f).startswith("~$"): out["xnbh:" + os.path.basename(f)] = f
     for f in sorted(glob.glob(os.path.join(STORE_DIR, "[0-9][0-9][0-9] - *.xlsx"))):
         if "DESKTOP" in f or os.path.basename(f)[:3] in SKIP_STORES or os.path.basename(f) == "302 - MV183.xlsx": continue  # bỏ qua theo yêu cầu / bản trùng
         out["store:" + os.path.basename(f)] = f
@@ -142,6 +151,8 @@ def extract(changed=None):
                 for r in ws.iter_rows(values_only=True):
                     w.writerow(["" if v is None else (v.strftime("%Y-%m-%d") if isinstance(v, datetime.datetime) else v) for v in r[:13]])
             print(f"  {k} -> sn2023.csv [{time.time()-t:.0f}s]")
+        elif k.startswith("xnbh:"):
+            print(f"  {k} (đọc trực tiếp ở bước compute)")
         elif k.startswith("store:"):
             subprocess.run([sys.executable, os.path.join(HERE, "store_extract.py"), os.path.basename(p)], cwd=WORK, check=True, capture_output=True)
             print(f"  {k} [{time.time()-t:.0f}s]")
@@ -151,7 +162,7 @@ def extract(changed=None):
 
 def compute(wait=False):
     status = os.path.join(WORK, "compute.status")
-    cmd = f'cd "{WORK}" && echo running > compute.status && python3 "{HERE}/compute.py" > compute.log 2>&1 && python3 "{HERE}/contact.py" >> compute.log 2>&1 && python3 "{HERE}/ctkm.py" >> compute.log 2>&1 && echo done > compute.status || echo failed > compute.status'
+    cmd = f'cd "{WORK}" && echo running > compute.status && python3 "{HERE}/compute.py" > compute.log 2>&1 && python3 "{HERE}/contact.py" >> compute.log 2>&1 && python3 "{HERE}/ctkm.py" >> compute.log 2>&1 && python3 "{HERE}/xnbh.py" >> compute.log 2>&1 && echo done > compute.status || echo failed > compute.status'
     subprocess.Popen(["bash", "-c", cmd], start_new_session=True)
     print("COMPUTE started (xem .work/compute.status)")
     if wait:
@@ -185,8 +196,11 @@ def build():
     open(os.path.join(ROOT, "site", "index.html"), "w", encoding="utf-8").write(
         '<!doctype html>\n<html lang="vi">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
         '<meta name="robots" content="noindex, nofollow">\n</head>\n<body>\n' + html + '\n</body>\n</html>\n')   # trang Netlify
-    od_dir = os.path.join(BAOCAO, "Dashboard CSKH"); os.makedirs(od_dir, exist_ok=True)
-    open(os.path.join(od_dir, "Dashboard CSKH Mat Viet.html"), "w", encoding="utf-8").write(html)
+    if HAS_OD:
+        od_dir = os.path.join(BAOCAO, "Dashboard CSKH"); os.makedirs(od_dir, exist_ok=True)
+        open(os.path.join(od_dir, "Dashboard CSKH Mat Viet.html"), "w", encoding="utf-8").write(html)
+    else:
+        print("  (bỏ qua bản copy sang OneDrive — phiên này không gắn thư mục OneDrive)")
     # save state for all sources currently readable
     stt = load_state()
     for k, p in sources().items():

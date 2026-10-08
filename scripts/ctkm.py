@@ -4,9 +4,9 @@ Chỉ tính cơ chế khi cột MÃ có giá trị (ERP đôi khi điền tên C
 import pandas as pd, glob, os, re, json, unicodedata, time
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__))); WORK=os.path.join(ROOT,".work")
 t0=time.time()
-GROUP={"BD":"CS.SN","LKMall":"MKT.KMMall","ECOM":"MKT.ECOM","EMPLOYEE":"HR.NV","(MKT.AWO)":"MKT.AWO","CSKH":"CS.MB","MCD":"MCD.DMGG"}
-AWO=[("Checkin / Follow MV",r"follow mv"),("CSKH sau mua",r"cskh sau mua"),("Đăng ký đo khám mắt",r"đo khám mắt"),("HSSV",r"hssv"),
-     ("Thu / đổi kính cũ",r"kính cũ"),("CP2 – cặp kính thứ 2",r"cp thứ 2|complete pair thứ 2|\bcp2\b"),("Xác nhận bảo hành",r"bảo hành"),
+GROUP={"BD":"CS.SN","LKMall":"MKT.KMMall","ECOM":"MKT.ECOM","EMPLOYEE":"HR.NV","(MKT.AWO)":"MKT.AWO","CSKH":"CS.MB","MCD":"MCD.DMGG","PO":"MKT.KM"}
+AWO=[("Checkin MV (Follow MV)",r"follow mv"),("Xác nhận bảo hành nhận (CSKH sau mua)",r"cskh sau mua"),("Đăng ký đo khám mắt",r"đo khám mắt"),("HSSV",r"hssv"),
+     ("Thu kính cũ",r"kính cũ"),("CP2",r"cp thứ 2|complete pair thứ 2|\bcp2\b"),("Bảo hành sản phẩm",r"bảo hành"),
      ("Welcome KH mới",r"welcome"),("Đăng ký ZMA",r"\bzma\b")]
 nfc=lambda s: unicodedata.normalize("NFC",re.sub(r"\s+"," ",str(s or "")).strip())
 def card_name(c):
@@ -22,6 +22,10 @@ def assign(r):
         if r["card"]: return "CS.MB", card_name(r["card"])
         return "Khác", "CK khác (không mã CTKM)"
     return "Full Price", "Nguyên giá (không CTKM)"
+def regroup(grp,name):
+    if re.search(r"kính cũ",name,re.I) and grp=="MKT.KM": return "MKT.TKC"
+    if grp=="BOD": return "BOD.H" if re.search(r"\bC\.? ?Hà\b",name) else "BOD.T"
+    return grp
 def campaign(name,grp):
     if grp=="Full Price": return "Nguyên giá"
     if grp=="CS.MB": return "Thẻ thành viên"
@@ -30,23 +34,27 @@ def campaign(name,grp):
         if re.search(pat,name,re.I): return "AWO · "+fam
     if grp=="MCD.DMGG": return "Chính sách giá (MCD)"
     if grp=="HR.NV": return "Mua hàng nội bộ"
-    if grp in("BOD","AM"): return "Duyệt giá ("+grp+")"
+    if grp in("BOD.H","BOD.T","AM"): return "Duyệt giá ("+grp+")"
     parts=re.split(r"\s+[-–:]\s+",name)
     c=parts[0] if parts and not re.match(r"(giảm|voucher|vc|tặng)\b",parts[0],re.I) else name
     c=re.sub(r"^P\d+\s+","",c)               # "P4 Customer Week" -> "Customer Week"
     return c[:60]
 def awo(name,grp):
-    if grp=="CS.BH": return "Xác nhận bảo hành"
+    if grp=="CS.BH": return "Bảo hành sản phẩm"
     for fam,pat in AWO:
         if re.search(pat,name,re.I): return fam
     return ""
 frames=[]
 for f in sorted(glob.glob(os.path.join(WORK,"ctkm","lines_????-??.csv"))):
     d=pd.read_csv(f,dtype=str,keep_default_na=False)
-    for c in ("tt","ck"): d[c]=pd.to_numeric(d[c],errors="coerce").fillna(0)
+    for c in ("tt","ck","truocvat"):
+        if c not in d: d[c]=d["tt"] if c=="truocvat" else 0
+        d[c]=pd.to_numeric(d[c],errors="coerce").fillna(0)
     for c in ("mud","mud_n","mud_ct","ott","ott_n","ott_ct","ot","ot_n","ot_ct","combo","combo_n","combo_ct","csgg","csgg_n","card"):
         if c not in d: d[c]=""
-    a=d.apply(assign,axis=1,result_type="expand"); d["grp"]=a[0]; d["prog"]=a[1]
+    a=d.apply(assign,axis=1,result_type="expand"); d["grp"]=[regroup(g,n) for g,n in zip(a[0],a[1])]; d["prog"]=a[1]
+    # NetSale = Số tiền trước VAT; chiết khấu quy về trước VAT theo tỷ lệ của từng dòng
+    d["ck"]=d["ck"]*(d["truocvat"]/d["tt"]).where(d["tt"]!=0,1/1.08); d["tt"]=d["truocvat"]
     frames.append(d[["date","bill","kho","grp","prog","tt","ck"]])
 d=pd.concat(frames,ignore_index=True); d=d[d.date.str.match(r"\d{4}-\d{2}-\d{2}")]
 d["month"]=d.date.str[:7]; d["kho"]=d.kho.map(nfc)
@@ -69,7 +77,7 @@ g=d.groupby(["month","ki","pi"]); pr=pd.DataFrame({"ns":g.tt.sum(),"ck":g.ck.sum
 prog_rows=[[r.month,int(r.ki),int(r.pi),k(r.ns),k(r.ck),int(r.b)] for r in pr.itertuples()]
 out={"kho":KHO,"progs":[[p,g,c,a] for p,g,c,a in zip(P.prog,P.grp,P.camp,P.awo)],"day":day_rows,"prog":prog_rows,
      "months":sorted(d.month.unique()),"awo_kpi":14,
-     "rule":"Gán 1 CTKM/dòng hàng: MUĐ > Ontop tổng > Ontop > Combo > CSGG/Thẻ TV > Nguyên giá. Doanh số = Thanh toán (đã gồm VAT, sau CK); Chiết khấu = CK+CKHD; %CK = CK/(DS+CK)."}
+     "rule":"Gán 1 CTKM/dòng hàng: MUĐ > Ontop tổng > Ontop > Combo > CSGG/Thẻ TV > Nguyên giá. NetSale = Số tiền trước VAT (sau CK); Discount = CK+CKHD quy về trước VAT; %CK = CK/(DS+CK)."}
 dp=os.path.join(WORK,"dash.json"); D=json.load(open(dp,encoding="utf-8")); D["ctkm"]=out
 json.dump(D,open(dp,"w",encoding="utf-8"),ensure_ascii=False,separators=(",",":"))
 print(f"ctkm: {len(d)} dòng, {len(P)} CTKM, day={len(day_rows)} prog={len(prog_rows)} [{time.time()-t0:.0f}s]")

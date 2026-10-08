@@ -27,3 +27,9 @@ Dashboard báo cáo CSKH: **Phân tích KH 12M** (KH mới / Quay lại ≤12T /
 - `scripts/ctkm_extract.py`: trích các cột CTKM cấp dòng hàng từ file BC21 → `.work/ctkm/lines_<YYYY-MM>.csv` (tự chạy trong bước `extract`).
 - `scripts/ctkm.py`: gán 1 CTKM/dòng hàng (MUĐ > Ontop tổng > Ontop > Combo > CSGG/Thẻ TV > Nguyên giá), tổng hợp theo ngày × cửa hàng và tháng × cửa hàng × CTKM, ghi vào khoá `ctkm` của `dash.json` (tự chạy trong bước `compute`).
 - Nhóm CT AWO (Follow MV, CSKH sau mua, Đăng ký đo khám mắt, HSSV, Thu kính cũ, CP2, Bảo hành, Welcome, ZMA) nhận diện theo từ khoá trong tên CT — sửa danh sách `AWO` trong `ctkm.py` khi có CT mới. KPI % bill AWO: `awo_kpi` (mặc định 14).
+
+## XNBH (tab "XNBH")
+- Nguồn: `BNR*.xlsx` đặt cùng cấp với thư mục repo (`C:\CRM\CRM\BNR T8.26.xlsx`), sheet `BNR`. File được `scan` theo dõi như các nguồn khác.
+- `scripts/xnbh.py`: tổng hợp theo tháng × cửa hàng → khoá `xnbh` của `dash.json` (tự chạy trong bước `compute`). Chỉ ghi số tổng hợp, không đưa Mã KH (SĐT) vào dashboard.
+- **Ngữ nghĩa cột XNBH đổi theo tháng** — script tự nhận diện và ghi vào `xnbh.mode`: `flag` (T8/2026: Yes/No = đã xác nhận bảo hành chưa) và `grant` (từ T9/2026: mọi dòng có SL KH đều Yes, dòng No là người trả lời NPS mà không nhận BNR). Vì vậy chỉ số chuyển đổi của tab dùng **NPS / KH nhận BNR**, so sánh được giữa mọi tháng.
+- Tier / Khu vực / AM lấy theo giá trị xuất hiện nhiều nhất của từng cửa hàng trong file BNR (chống dòng điền sai).
