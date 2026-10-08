@@ -4,10 +4,14 @@
 Nguồn: file BNR*.xlsx đặt cùng cấp với thư mục repo (C:\\CRM\\CRM\\BNR T8.26.xlsx), sheet "BNR".
 Ghi kết quả vào khoá "xnbh" của .work/dash.json. Chỉ ghi số tổng hợp — KHÔNG đưa Mã KH (SĐT) vào.
 
-Lưu ý định nghĩa (ngữ nghĩa cột đổi giữa T8 và T9/2026):
-  - T8: cột XNBH = Yes/No cho biết KH nhận BNR đã xác nhận bảo hành chưa; NPS=1 trùng khít XNBH=Yes.
-  - T9: mọi dòng có SL KH đều mang XNBH=Yes; các dòng XNBH=No là người trả lời NPS mà không nhận BNR.
-  => Chỉ số so sánh được giữa các tháng là NPS trên KH nhận BNR (nps_b / kh), không phải cột XNBH.
+Chỉ số chính: tỷ lệ XNBH trên KH nhận BNR = xnb / kh
+  xnb = dòng XNBH=Yes có SL KH   (khách nhận BNR và đã xác nhận bảo hành)
+  xno = dòng XNBH=Yes không SL KH (xác nhận bảo hành nhưng không nhận BNR)
+
+Script tự kiểm tra hai thứ và ghi vào dash.json để giao diện cảnh báo:
+  mode[m]  "flag"  = cột XNBH phân biệt được đã/chưa xác nhận (bình thường)
+           "grant" = cột XNBH chỉ lặp lại "có nhận BNR hay không" -> không dùng để đo chuyển đổi được
+  mism[m]  số dòng mà cột XNBH và cột NPS không khớp nhau (bình thường = 0)
 """
 import os, sys, glob, json, collections, datetime
 
@@ -41,7 +45,7 @@ def main():
         print("XNBH: thiếu cột", miss, "— bỏ qua"); return
     g = lambda r, c: r[I[c]] if I.get(c) is not None and I[c] < len(r) else None
 
-    agg = collections.defaultdict(lambda: {"rows": 0, "kh": 0, "sets": 0, "xn": 0, "npsb": 0, "npso": 0})
+    agg = collections.defaultdict(lambda: {"rows": 0, "kh": 0, "sets": 0, "xnb": 0, "xno": 0, "npsb": 0, "npso": 0, "mism": 0, "xor": 0})
     prof = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
     nrow = 0
     for r in it:
@@ -55,12 +59,17 @@ def main():
         st = int(g(r, "SL tặng") or 0)
         yes = str(g(r, "XNBH") or "").strip().lower() == "yes"
         nps = (g(r, "NPS") or 0) and True
+        nps = bool(nps)
         a = agg[(m, kho)]
         a["rows"] += 1; a["kh"] += kh; a["sets"] += st
-        if yes: a["xn"] += 1
+        if yes:
+            if kh > 0: a["xnb"] += 1
+            else: a["xno"] += 1
         if nps:
             if kh > 0: a["npsb"] += 1
             else: a["npso"] += 1
+        if yes != nps: a["mism"] += 1          # cột XNBH và NPS lệch nhau
+        if yes != (kh > 0): a["xor"] += 1      # XNBH khác với "có nhận BNR"
         for c in ("Tier", "Khu vực", "AM"):
             v = g(r, c)
             if v: prof[kho][c][str(v).strip()] += 1
@@ -75,24 +84,26 @@ def main():
                   "am": c["AM"].most_common(1)[0][0] if c["AM"] else ""} for k, c in prof.items()}
     months = sorted({r["month"] for r in rows})
 
-    # ngữ nghĩa cột XNBH theo từng tháng: "flag" = XNBH là cờ đã-xác-nhận (T8),
-    # "grant" = mọi dòng nhận BNR đều Yes (T9 trở đi) -> cột XNBH không còn phân biệt được
-    mode = {}
+    # Ngữ nghĩa cột XNBH theo từng tháng.
+    # Dò bằng số dòng mà (XNBH=Yes) khác với (có nhận BNR): gần 0 nghĩa là cột XNBH
+    # chỉ lặp lại việc có nhận BNR hay không -> không đo được chuyển đổi.
+    mode, mism = {}, {}
     for m in months:
         rs = [r for r in rows if r["month"] == m]
-        kh = sum(r["kh"] for r in rs); xn = sum(r["xn"] for r in rs)
-        mode[m] = "grant" if kh and abs(xn - kh) <= max(2, 0.01 * kh) else "flag"
+        nr = sum(r["rows"] for r in rs); xor = sum(r["xor"] for r in rs)
+        mode[m] = "grant" if nr and xor <= max(2, 0.005 * nr) else "flag"
+        mism[m] = sum(r["mism"] for r in rs)
 
-    d["xnbh"] = {"rows": rows, "months": months, "stores": stores, "mode": mode,
+    d["xnbh"] = {"rows": rows, "months": months, "stores": stores, "mode": mode, "mism": mism,
                  "src": os.path.basename(src), "nrow": nrow,
                  "generated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
     json.dump(d, open(DASH, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
     tot = collections.Counter()
     for r in rows:
-        for k in ("kh", "sets", "xn", "npsb", "npso"): tot[k] += r[k]
+        for k in ("kh", "sets", "xnb", "xno", "npsb", "npso", "mism"): tot[k] += r[k]
     print(f"XNBH ok: {os.path.basename(src)} · {nrow} dòng · {len(months)} tháng ({months[0]}→{months[-1]}) · "
-          f"{len(set(r['kho'] for r in rows))} CH · KH nhận BNR {tot['kh']} · NPS kèm BNR {tot['npsb']} · NPS lẻ {tot['npso']}")
-    print("   ngữ nghĩa cột XNBH theo tháng:", mode)
+          f"{len(set(r['kho'] for r in rows))} CH · KH nhận BNR {tot['kh']} · XNBH kèm BNR {tot['xnb']} · XNBH lẻ {tot['xno']}")
+    print("   cột XNBH theo tháng:", mode, "| số dòng XNBH lệch NPS:", mism)
 
 if __name__ == "__main__":
     main()
