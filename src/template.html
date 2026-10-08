@@ -103,8 +103,6 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 .nm{display:inline-block;min-width:260px;max-width:440px;text-align:left;white-space:normal;line-height:1.35}
 #t-km-prog td:nth-child(4),#t-km-prog th:nth-child(4),#t-km-prog th:nth-child(2),#t-awo-prog th:nth-child(2),#t-km-store th:last-child{text-align:left}
 .empty{color:var(--fg-3);font-size:13px;padding:30px;text-align:center}
-.warn{border-left:3px solid var(--s4);background:var(--surface-2);border-radius:var(--radius);padding:11px 14px;font-size:13px;color:var(--fg-2);line-height:1.55;margin:0 0 16px}
-.warn b{color:var(--fg)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -126,7 +124,6 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <button class="tab" role="tab" data-v="sn">Sinh nhật KH</button>
     <button class="tab" role="tab" data-v="km">CTKM</button>
     <button class="tab" role="tab" data-v="awo">CTKM AWO tại CH</button>
-    <button class="tab" role="tab" data-v="xnbh">XNBH</button>
   </div>
   <div class="filters">
     <label for="fType">Kỳ</label>
@@ -257,30 +254,6 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <div class="card c12"><p class="ttl">Chi tiết từng mã CT AWO</p><p class="note">Kỳ đang chọn</p><div class="tw" id="t-awo-prog"></div></div>
     <div class="card c12"><p class="ttl">AWO theo cửa hàng</p><p class="note">Số bill từng loại CT · <span class="pill ok">Đạt KPI</span> khi % bill AWO ≥ KPI</p><div class="tw" id="t-awo-store"></div></div>
   </div>
-</section>
-
-<!-- ============ XNBH ============ -->
-<section class="view" id="v-xnbh">
-  <div class="kpis" id="xn-kpis"></div>
-  <div class="warn" id="xn-warn"></div>
-  <div class="grid">
-    <div class="card c8"><p class="ttl">KH nhận BNR &amp; tỷ lệ NPS theo tháng</p><p class="note">Cột: số KH nhận bộ nước rửa kính · đường: % KH nhận BNR có phản hồi NPS</p><div class="ch"><canvas id="c-xn-month"></canvas></div><div class="legend" id="lg-xn"></div></div>
-    <div class="card c4"><p class="ttl">Cơ cấu lượt NPS</p><p class="note">Kỳ đang chọn · NPS kèm BNR so với NPS không kèm BNR</p><div class="ch"><canvas id="c-xn-pie"></canvas></div><div class="legend" id="lg-xn-pie"></div></div>
-    <div class="card c6"><p class="ttl">Tỷ lệ NPS / KH nhận BNR theo AM</p><p class="note">Kỳ đang chọn · nét đứt: trung bình hệ thống</p><div class="ch s"><canvas id="c-xn-am"></canvas></div></div>
-    <div class="card c6"><p class="ttl">Tỷ lệ NPS / KH nhận BNR theo tier &amp; khu vực</p><p class="note">Kỳ đang chọn</p><div class="ch s"><canvas id="c-xn-tier"></canvas></div></div>
-    <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Kỳ đang chọn · <span class="pill ok">Trên TB</span> khi tỷ lệ NPS ≥ trung bình hệ thống · sắp theo số KH nhận BNR</p><div class="tw" id="t-xn-store"></div></div>
-    <div class="card c12"><p class="ttl">Theo tháng</p><p class="note">Toàn hệ thống theo bộ lọc cửa hàng / model</p><div class="tw" id="t-xn-month"></div></div>
-  </div>
-  <details class="def"><summary>Xem định nghĩa &amp; lưu ý dữ liệu</summary>
-    <ul>
-      <li><b>KH nhận BNR</b> = cột “SL KH” trong file BNR (mỗi dòng là một khách được tặng bộ nước rửa kính). <b>Số BNR tặng</b> = cột “SL tặng” — một khách có thể nhận nhiều bộ.</li>
-      <li><b>Lượt NPS</b> = dòng có cột NPS. Tách làm hai: <b>NPS kèm BNR</b> (khách vừa nhận BNR vừa có NPS) và <b>NPS không kèm BNR</b> (có phản hồi nhưng không nhận bộ).</li>
-      <li><b>Tỷ lệ NPS / KH nhận BNR</b> = NPS kèm BNR ÷ KH nhận BNR. Đây là chỉ số so sánh được giữa các tháng.</li>
-      <li><b>Cột XNBH đổi ý nghĩa giữa các tháng</b>: ở T8/2026 cột này là cờ Yes/No cho biết khách nhận BNR đã xác nhận bảo hành chưa (và trùng khít với NPS). Từ T9/2026 mọi dòng có SL KH đều mang Yes, còn các dòng No là người trả lời NPS mà không nhận BNR — nên cột XNBH không còn phân biệt được “đã xác nhận / chưa xác nhận”. Vì vậy báo cáo lấy <b>NPS</b> làm chỉ số chuyển đổi cho mọi tháng. Tháng nào cột XNBH còn dùng được sẽ ghi rõ ở ô cảnh báo phía trên.</li>
-      <li>Tier / Khu vực / AM lấy theo giá trị xuất hiện nhiều nhất của từng cửa hàng trong file BNR (chống các dòng bị điền sai). Bộ lọc Kỳ / Cửa hàng / Model dùng chung với các tab khác.</li>
-      <li>Nguồn: <b><span id="xn-src"></span></b> — sheet BNR. Chỉ số tổng hợp, không chứa số điện thoại khách.</li>
-    </ul>
-  </details>
 </section>
 
 </div>
