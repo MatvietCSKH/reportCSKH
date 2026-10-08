@@ -426,6 +426,22 @@ const LABELS = {
   'c-sn-age':    () => ({datalabels:DL.bar(cmp)}),
   'c-ct-pct':    () => ({datalabels:DL.line(fP)}),
   'c-ct-cr':     () => ({datalabels:DL.line(fP1,{align:'top'})}),
+  'c-xn-month':  () => ({datalabels:{                       // cột: số KH · đường: %
+      display:true, clamp:true,
+      formatter:(v,c)=> c.dataset.type==='line' ? fP1(v) : fmtN(v),
+      anchor:(c)=> c.dataset.type==='line' ? 'center' : 'end',
+      align:(c)=>  c.dataset.type==='line' ? 'top' : 'end',
+      offset:(c)=> c.dataset.type==='line' ? 5 : -2,
+      color:(c)=>  c.dataset.type==='line' ? cssv('--accent') : cssv('--fg-2'),
+      backgroundColor:(c)=> c.dataset.type==='line' ? cssv('--surface') : null,
+      borderRadius:3, padding:{top:1,bottom:0,left:3,right:3},
+      font:{size:10.5,weight:'700'}}}),
+  'c-xn-pie':    () => ({datalabels:{                       // số lượt + tỷ trọng trong vành
+      display:(c)=>{const t=c.dataset.data.reduce((a,b)=>a+(+b||0),0); return t && (+c.dataset.data[c.dataIndex]||0)/t>=.05;},
+      color:(c)=>inkOn(bgOf(c)), font:{size:11,weight:'700'}, textAlign:'center',
+      formatter:(v,c)=>{const t=c.dataset.data.reduce((a,b)=>a+(+b||0),0); return [fmtN(v), fmtP(v,t)];}}}),
+  'c-xn-am':     () => ({datalabels:DL.bar(fP1)}),
+  'c-xn-tier':   () => ({datalabels:DL.bar(fP1)}),
 };
 const ttB = {callbacks:{label:c=>` ${c.dataset.label}: ${fmtN(c.parsed.y)} tr`}};
 const ttM = {callbacks:{label:c=>` ${c.dataset.label}: ${fmtM(c.parsed.y)} tr`}};
