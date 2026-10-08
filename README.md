@@ -22,3 +22,8 @@ Dashboard báo cáo CSKH: **Phân tích KH 12M** (KH mới / Quay lại ≤12T /
 - **Customer** = bill có SĐT; **Buyer** = bill khách lẻ (Mã KH = KL).
 - **KH mới**: chưa từng mua (lịch sử từ 2018). **Quay lại ≤12T**: 2 đơn gần nhất cách ≤ 12 tháng. **KH cũ >12T**: cách > 12 tháng.
 - **CR sinh nhật** = KH dùng voucher / KH được gửi. **CH liên hệ** = dòng có ghi NV / ngày / hình thức trong file CH.
+
+## CTKM / AWO (tab "CTKM" và "CTKM AWO tại CH")
+- `scripts/ctkm_extract.py`: trích các cột CTKM cấp dòng hàng từ file BC21 → `.work/ctkm/lines_<YYYY-MM>.csv` (tự chạy trong bước `extract`).
+- `scripts/ctkm.py`: gán 1 CTKM/dòng hàng (MUĐ > Ontop tổng > Ontop > Combo > CSGG/Thẻ TV > Nguyên giá), tổng hợp theo ngày × cửa hàng và tháng × cửa hàng × CTKM, ghi vào khoá `ctkm` của `dash.json` (tự chạy trong bước `compute`).
+- Nhóm CT AWO (Follow MV, CSKH sau mua, Đăng ký đo khám mắt, HSSV, Thu kính cũ, CP2, Bảo hành, Welcome, ZMA) nhận diện theo từ khoá trong tên CT — sửa danh sách `AWO` trong `ctkm.py` khi có CT mới. KPI % bill AWO: `awo_kpi` (mặc định 14).

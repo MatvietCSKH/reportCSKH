@@ -131,6 +131,9 @@ def extract(changed=None):
             if not m: os.remove(tmp); print("  skip (rỗng)", k); continue
             if m < "2025-10": os.remove(tmp); print("  skip (tháng cũ)", k, m); continue
             os.replace(tmp, os.path.join(WORK, f"raw_{m}.csv")); print(f"  {k} -> raw_{m}.csv [{time.time()-t:.0f}s]")
+            os.makedirs(os.path.join(WORK, "ctkm"), exist_ok=True)   # CTKM cấp dòng hàng cho tab CTKM / AWO
+            subprocess.run([sys.executable, os.path.join(HERE, "ctkm_extract.py"), "--out", os.path.join(WORK, "ctkm", f"lines_{m}.csv"), p], check=True, capture_output=True)
+            print(f"  {k} -> ctkm/lines_{m}.csv [{time.time()-t:.0f}s]")
         elif k.startswith("sn:"):
             import openpyxl
             wb = openpyxl.load_workbook(p, read_only=True, data_only=True); ws = wb["SN2023"]
@@ -148,7 +151,7 @@ def extract(changed=None):
 
 def compute(wait=False):
     status = os.path.join(WORK, "compute.status")
-    cmd = f'cd "{WORK}" && echo running > compute.status && python3 "{HERE}/compute.py" > compute.log 2>&1 && python3 "{HERE}/contact.py" >> compute.log 2>&1 && echo done > compute.status || echo failed > compute.status'
+    cmd = f'cd "{WORK}" && echo running > compute.status && python3 "{HERE}/compute.py" > compute.log 2>&1 && python3 "{HERE}/contact.py" >> compute.log 2>&1 && python3 "{HERE}/ctkm.py" >> compute.log 2>&1 && echo done > compute.status || echo failed > compute.status'
     subprocess.Popen(["bash", "-c", cmd], start_new_session=True)
     print("COMPUTE started (xem .work/compute.status)")
     if wait:

@@ -341,11 +341,161 @@ function renderContact(){
     brow.map(([code,g])=>{ const s=storeKho(code)||{}; const p=pct(g.noted,g.listed); return [s.kho||code,MODEL_LBL(s.model||''),s.am||'–',pill(p),g.active.size+'/'+g.months.size,fmtN(g.listed),fmtN(g.noted),bar(fP(p),100),fmtN(g.red_n),fmtP(g.red_n,g.noted),fmtN(g.red_u),fmtP(g.red_u,g.listed-g.noted),fmtB(g.rev_n)]; }),
     ['Tổng','','','',''+periodMonths().length,fmtN(T.listed),fmtN(T.noted),fP(pct(T.noted,T.listed)),fmtN(T.red_n),fP1(crN),fmtN(T.red_u),fP1(crU),fmtB(T.rev_n)]);
 }
+/* ================= CTKM ================= */
+const K = D.ctkm || {kho:[],progs:[],day:[],prog:[],months:[],awo_kpi:14};
+const KSM = {}; D.stores.forEach(s=>KSM[s.kho]=s);
+const kModel = kho => { const m=(KSM[kho]||{}).model; return MODELS.includes(m) ? m : '6. Khác'; };
+const KDAY = K.day.map(r=>({d:r[0], m:r[0].slice(0,7), kho:K.kho[r[1]], ns:r[2]*1e3, ck:r[3]*1e3, b:r[4], bp:r[5], ba:r[6], nsp:r[7]*1e3}));
+const KPRG = K.prog.map(r=>({m:r[0], kho:K.kho[r[1]], p:r[2], ns:r[3]*1e3, ck:r[4]*1e3, b:r[5]}));
+const PNAME=i=>K.progs[i][0], PGRP=i=>K.progs[i][1], PCAMP=i=>K.progs[i][2], PAWO=i=>K.progs[i][3];
+const FULL='Full Price';
+const kstate = {camp:'', grp:''};
+try { const s=JSON.parse(localStorage.getItem('cskh-km')||'{}'); Object.assign(kstate, s); } catch(e){}
+const okKho = kho => (!state.store || kho===state.store) && state.models.has(kModel(kho));
+const okProg = p => (!kstate.camp || PCAMP(p)===kstate.camp) && (!kstate.grp || PGRP(p)===kstate.grp);
+const ckPct = (ck,ns) => (ns+ck) ? 100*ck/(ns+ck) : 0;
+const fCK = (ck,ns) => fP1(ckPct(ck,ns));
+const GRP_COL = () => { const c=[cssv('--s1'),cssv('--s4'),cssv('--s3'),cssv('--s2'),cssv('--t3'),cssv('--t2'),cssv('--t5'),cssv('--s8'),cssv('--t4')]; return (g,i) => g===FULL ? cssv('--t6') : c[i % c.length]; };
+function isoWeek(ds){ const d=new Date(ds+'T00:00:00Z'); const day=(d.getUTCDay()+6)%7; d.setUTCDate(d.getUTCDate()-day+3); const y=d.getUTCFullYear(); const f=new Date(Date.UTC(y,0,4)); return [y, 1+Math.round(((d-f)/864e5-3+((f.getUTCDay()+6)%7))/7)]; }
+function kmAgg(rows, keyFn){ const o={}; for(const r of rows){ const k=keyFn(r); const g=o[k]||(o[k]={ns:0,ck:0,b:0}); g.ns+=r.ns; g.ck+=r.ck; g.b+=r.b; } return o; }
+function comboChart(id, labels, ns, ck, extra={}){
+  const C1=cssv('--s1'), C2=cssv('--s4'), C3=cssv('--s2');
+  mk(id,{type:'bar',data:{labels,datasets:[
+      barDs('Doanh số',ns.map(v=>v/1e6),C1,{yAxisID:'y',order:2}),
+      barDs('Chiết khấu',ck.map(v=>v/1e6),C2,{yAxisID:'y',order:2}),
+      lineDs('%CK',ns.map((v,i)=>ckPct(ck[i],v)),C3,{yAxisID:'y1',order:1,pointRadius:extra.dense?1.5:3})]},
+    options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y1'?` %CK: ${fP1(c.parsed.y)}`:` ${c.dataset.label}: ${fmtN(c.parsed.y)} tr`}},
+      datalabels:{display:c=>c.dataset.yAxisID==='y1' ? (!extra.dense || c.dataIndex%2===0) : (!extra.dense && c.datasetIndex===0), formatter:(v,c)=>c.dataset.yAxisID==='y1'?fP1(v):(c.datasetIndex===0?fmtN(v):''),
+        anchor:'end', align:c=>c.dataset.yAxisID==='y1'?'top':'end', offset:c=>c.dataset.yAxisID==='y1'?4:-2, color:cssv('--fg-2'), font:{size:extra.dense?9:10,weight:'600'}, clamp:true,
+        backgroundColor:c=>c.dataset.yAxisID==='y1'?cssv('--surface'):null, borderRadius:3, padding:{top:1,bottom:0,left:3,right:3}}},
+      scales:{x:{ticks:{autoSkip:true,maxRotation:0}},y:{beginAtZero:true,ticks:{callback:v=>fmtN(v)}},y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:v=>v+'%'}}}}});
+}
+function renderKM(){
+  const pm=periodMonths(), cms=chartMonths().filter(m=>K.months.includes(m));
+  const filtered = !!(kstate.camp||kstate.grp);
+  const P = KPRG.filter(r=>okKho(r.kho)&&okProg(r.p));
+  const Pp = P.filter(r=>inPeriod(r.m));
+  const Dp = KDAY.filter(r=>okKho(r.kho)&&inPeriod(r.m));
+  const Tall = KPRG.filter(r=>okKho(r.kho)&&inPeriod(r.m)).reduce((a,r)=>(a.ns+=r.ns,a.ck+=r.ck,a),{ns:0,ck:0});
+  const T = Pp.reduce((a,r)=>(a.ns+=r.ns,a.ck+=r.ck,a.b+=r.b,a),{ns:0,ck:0,b:0});
+  const Tp = Pp.filter(r=>PGRP(r.p)!==FULL).reduce((a,r)=>(a.ns+=r.ns,a.ck+=r.ck,a),{ns:0,ck:0});
+  const bills = filtered ? T.b : Dp.reduce((a,r)=>a+r.b,0), billsP = filtered ? Pp.filter(r=>PGRP(r.p)!==FULL).reduce((a,r)=>a+r.b,0) : Dp.reduce((a,r)=>a+r.bp,0);
+  const noData = !pm.some(m=>K.months.includes(m));
+  el('km-scope').textContent = noData ? 'Kỳ đang chọn chưa có dữ liệu CTKM (có từ T10/2025).' : (filtered ? 'Đang lọc — % tỷ trọng tính trên tổng doanh số kỳ: '+fmtB(Tall.ns)+' tr' : '');
+  el('km-kpis').innerHTML=[
+    kpi(filtered?'Doanh số (đã lọc)':'Sum of NetSale', fmtB(T.ns)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', filtered? fmtP(T.ns,Tall.ns)+' tổng doanh số' : 'ATV '+fmtM(bills?T.ns/bills:0)+' tr · '+fmtN(bills)+' bill', null, true),
+    kpi('Sum of Discount', fmtB(T.ck)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', 'tổng chiết khấu CTKM'),
+    kpi('%CK CTKM', fCK(T.ck,T.ns), 'CK / (DS + CK)', cssv('--s2')),
+    kpi('Doanh số có CTKM', fmtP(Tp.ns,T.ns), fmtB(Tp.ns)+' tr · nguyên giá '+fmtB(T.ns-Tp.ns)+' tr', cssv('--s1')),
+    kpi('Bill có CTKM', fmtP(billsP,bills), fmtN(billsP)+' / '+fmtN(bills)+' bill'),
+  ].join('');
+  // tháng
+  const bm=kmAgg(P.filter(r=>cms.includes(r.m)), r=>r.m);
+  comboChart('c-km-month', cms.map(mLbl), cms.map(m=>(bm[m]||{}).ns||0), cms.map(m=>(bm[m]||{}).ck||0));
+  legend('lg-km',[['Doanh số',cssv('--s1')],['Chiết khấu',cssv('--s4')],['%CK',cssv('--s2')]]);
+  // tuần & ngày (tổng, không lọc chiến dịch)
+  const wk=kmAgg(Dp, r=>{ const [y,w]=isoWeek(r.d); return y+'-'+String(w).padStart(2,'0'); }); const wks=Object.keys(wk).sort();
+  comboChart('c-km-week', wks.map(k=>'Tuần '+parseInt(k.slice(5))+(new Set(wks.map(x=>x.slice(0,4))).size>1?'/'+k.slice(2,4):'')), wks.map(k=>wk[k].ns), wks.map(k=>wk[k].ck), {dense:wks.length>20});
+  el('km-week-note').textContent = 'Tuần ISO (thứ 2 → CN) trong kỳ đang chọn · tổng toàn bộ bán hàng, không lọc theo chiến dịch / group';
+  let dRows=Dp, dNote='Từng ngày trong kỳ đang chọn';
+  if (pm.length>3){ const lm=[...new Set(Dp.map(r=>r.m))].sort().pop(); dRows=Dp.filter(r=>r.m===lm); dNote='Kỳ dài hơn 1 quý → hiện từng ngày của tháng cuối kỳ ('+(lm?mLbl(lm):'–')+')'; }
+  const dy=kmAgg(dRows, r=>r.d); const dys=Object.keys(dy).sort();
+  el('km-day-note').textContent = dNote+' · tổng toàn bộ bán hàng';
+  comboChart('c-km-day', dys.map(d=>d.slice(8)+'/'+d.slice(5,7)), dys.map(d=>dy[d].ns), dys.map(d=>dy[d].ck), {dense:dys.length>35});
+  // group
+  const gg=kmAgg(Pp, r=>PGRP(r.p)); const gl=Object.entries(gg).sort((a,b)=>b[1].ns-a[1].ns); const gc=GRP_COL();
+  const cols=gl.map(([g],i)=>gc(g,i));
+  mk('c-km-grppie',{type:'doughnut',data:{labels:gl.map(x=>x[0]),datasets:[{data:gl.map(x=>Math.max(0,x[1].ns)),backgroundColor:cols,borderColor:cssv('--surface'),borderWidth:2,hoverOffset:4}]},
+    options:{cutout:'55%',plugins:{datalabels:DL.pie(gl.reduce((a,x)=>a+Math.max(0,x[1].ns),0)),tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtN(c.parsed/1e6)} tr (${fmtP(c.parsed,Tall.ns)})`}}}}});
+  legend('lg-km-grp', gl.slice(0,8).map(([g],i)=>[g,cols[i]]));
+  const gmax=gl.length?Math.max(...gl.map(x=>x[1].ns)):0;
+  table('t-km-grp',['Group CTKM','Doanh số (tr)','% DS','Chiết khấu (tr)','%CK','Bill','ATV (tr)'],
+    gl.map(([g,v])=>[g,bar(fmtB(v.ns),gmax),fmtP(v.ns,Tall.ns),fmtB(v.ck),fCK(v.ck,v.ns),fmtN(v.b),fmtM(v.b?v.ns/v.b:0)]),
+    ['Tổng',fmtB(T.ns),fmtP(T.ns,Tall.ns),fmtB(T.ck),fCK(T.ck,T.ns),'','']);
+  // CTKM
+  const pg=kmAgg(Pp, r=>r.p); const pl=Object.entries(pg).filter(([p])=>PGRP(+p)!==FULL).sort((a,b)=>b[1].ns-a[1].ns);
+  const top=pl.slice(0,10);
+  mk('c-km-top',{type:'bar',data:{labels:top.map(([p])=>{const n=PNAME(+p); return n.length>46?n.slice(0,44)+'…':n;}),datasets:[barDs('Doanh số',top.map(([,v])=>v.ns/1e6),cssv('--s1'),{maxBarThickness:22})]},
+    options:{indexAxis:'y',plugins:{tooltip:{callbacks:{title:c=>PNAME(+top[c[0].dataIndex][0]),label:c=>` ${fmtN(c.parsed.x)} tr · ${fmtP(top[c.dataIndex][1].ns,Tall.ns)} · %CK ${fCK(top[c.dataIndex][1].ck,top[c.dataIndex][1].ns)}`}},
+      datalabels:DL.bar((v,c)=>fmtN(v)+' · '+fmtP(top[c.dataIndex][1].ns,Tall.ns),{align:'end',anchor:'end',offset:2})},
+      layout:{padding:{right:90}},scales:{x:{beginAtZero:true,ticks:{callback:v=>fmtN(v)}},y:{ticks:{font:{size:10.5}}}}}});
+  const pmax=pl.length?pl[0][1].ns:0;
+  table('t-km-prog',['#','CTKM','Group','Chiến dịch','Bill','Doanh số (tr)','% DS','Chiết khấu (tr)','%CK','ATV (tr)','DS / 1đ CK'],
+    pl.slice(0,30).map(([p,v],i)=>[i+1,`<span class="nm">${PNAME(+p)}</span>`,`<span class="tag">${PGRP(+p)}</span>`,PCAMP(+p),fmtN(v.b),bar(fmtB(v.ns),pmax),fmtP(v.ns,Tall.ns),fmtB(v.ck),fCK(v.ck,v.ns),fmtM(v.b?v.ns/v.b:0),v.ck>0?(v.ns/v.ck).toLocaleString('vi-VN',{maximumFractionDigits:1}):'–']));
+  // chiến dịch
+  const cm=pm.filter(m=>K.months.includes(m)); const showM=cm.length>1&&cm.length<=12;
+  const cg={}; for(const r of Pp){ const c=PCAMP(r.p); if(c==='Nguyên giá') continue; const g=cg[c]||(cg[c]={ns:0,ck:0,b:0,progs:new Set(),bym:{}}); g.ns+=r.ns; g.ck+=r.ck; g.b+=r.b; g.progs.add(r.p); g.bym[r.m]=(g.bym[r.m]||0)+r.ns; }
+  const cl=Object.entries(cg).sort((a,b)=>b[1].ns-a[1].ns); const cmax=cl.length?cl[0][1].ns:0;
+  table('t-km-camp',['Chiến dịch','Số CTKM','Bill','Doanh số (tr)','% DS','Chiết khấu (tr)','%CK','ATV (tr)'].concat(showM?cm.map(mLbl):[]),
+    cl.slice(0,40).map(([c,v])=>[c,v.progs.size,fmtN(v.b),bar(fmtB(v.ns),cmax),fmtP(v.ns,Tall.ns),fmtB(v.ck),fCK(v.ck,v.ns),fmtM(v.b?v.ns/v.b:0)].concat(showM?cm.map(m=>v.bym[m]?fmtB(v.bym[m]):'·'):[])));
+  // cửa hàng
+  const sg={}; for(const r of Pp){ const g=sg[r.kho]||(sg[r.kho]={ns:0,ck:0,nsp:0,bp:0,byp:{}}); g.ns+=r.ns; g.ck+=r.ck; if(PGRP(r.p)!==FULL){ g.nsp+=r.ns; g.bp+=r.b; g.byp[r.p]=(g.byp[r.p]||0)+r.ns; } }
+  const sl=Object.entries(sg).sort((a,b)=>b[1].ns-a[1].ns); const smax=sl.length?sl[0][1].ns:0;
+  table('t-km-store',['Cửa hàng','Model','Doanh số (tr)','DS có CTKM (tr)','% DS có CTKM','Chiết khấu (tr)','%CK','CTKM doanh số cao nhất'],
+    sl.map(([k,v])=>{ const tp=Object.entries(v.byp).sort((a,b)=>b[1]-a[1])[0]; return [k,MODEL_LBL(kModel(k)),bar(fmtB(v.ns),smax),fmtB(v.nsp),fmtP(v.nsp,v.ns),fmtB(v.ck),fCK(v.ck,v.ns),tp?`<span class="nm">${PNAME(+tp[0])}</span>`:'–']; }),
+    ['Tổng','',fmtB(T.ns),fmtB(Tp.ns),fmtP(Tp.ns,T.ns),fmtB(T.ck),fCK(T.ck,T.ns),'']);
+}
+/* ---------- AWO ---------- */
+const AWO_FAM = [...new Set(K.progs.map(p=>p[3]).filter(Boolean))];
+function renderAWO(){
+  const pm=periodMonths(), cms=chartMonths().filter(m=>K.months.includes(m)); const KPI=K.awo_kpi||14;
+  el('awo-kpi-v').textContent=KPI;
+  const P=KPRG.filter(r=>okKho(r.kho)); const A=P.filter(r=>PAWO(r.p));
+  const Ap=A.filter(r=>inPeriod(r.m)); const Dall=KDAY.filter(r=>okKho(r.kho));
+  const Dp=Dall.filter(r=>inPeriod(r.m));
+  const tot=Dp.reduce((a,r)=>(a.ns+=r.ns,a.b+=r.b,a.ba+=r.ba,a),{ns:0,b:0,ba:0});
+  const T=Ap.reduce((a,r)=>(a.ns+=r.ns,a.ck+=r.ck,a.b+=r.b,a),{ns:0,ck:0,b:0});
+  const pb=pct(tot.ba,tot.b);
+  el('awo-kpis').innerHTML=[
+    kpi('Bill áp dụng AWO', fmtN(tot.ba), 'trên '+fmtN(tot.b)+' bill toàn hệ thống', null, true),
+    kpi('% bill AWO', fP1(pb), (pb>=KPI?'<span class="pill ok">Đạt</span>':'<span class="pill no">Chưa đạt</span>')+' KPI '+KPI+'% bill', cssv('--s3')),
+    kpi('Doanh số AWO', fmtB(T.ns)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', fmtP(T.ns,tot.ns)+' tổng doanh số'),
+    kpi('Chiết khấu AWO', fmtB(T.ck)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', '%CK '+fCK(T.ck,T.ns), cssv('--s2')),
+    kpi('ATV bill AWO', fmtM(T.b?T.ns/T.b:0)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', 'doanh số AWO / bill'),
+  ].join('');
+  const FC=[cssv('--s1'),cssv('--s3'),cssv('--s4'),cssv('--s2'),cssv('--t3'),cssv('--t2'),cssv('--t5'),cssv('--s8'),cssv('--t4')];
+  const fcol=f=>FC[AWO_FAM.indexOf(f)%FC.length];
+  const byMF=kmAgg(A.filter(r=>cms.includes(r.m)), r=>r.m+'|'+PAWO(r.p)); const byM=kmAgg(Dall.filter(r=>cms.includes(r.m)).map(r=>({ns:0,ck:r.ba,b:r.b,m:r.m})), r=>r.m);
+  const fams=AWO_FAM.filter(f=>cms.some(m=>byMF[m+'|'+f]));
+  mk('c-awo-month',{type:'bar',data:{labels:cms.map(mLbl),datasets:fams.map(f=>barDs(f,cms.map(m=>(byMF[m+'|'+f]||{}).b||0),fcol(f),{stack:'s',yAxisID:'y'}))
+      .concat([lineDs('% bill AWO',cms.map(m=>byM[m]?pct(byM[m].ck,byM[m].b):0),cssv('--s2'),{yAxisID:'y1'}),lineDs('KPI',cms.map(()=>KPI),cssv('--fg-3'),{yAxisID:'y1',borderDash:[5,4],pointRadius:0,borderWidth:1.5})])},
+    options:{plugins:{tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y1'?` ${c.dataset.label}: ${fP1(c.parsed.y)}`:` ${c.dataset.label}: ${fmtN(c.parsed.y)} bill`}},
+      datalabels:{display:c=>c.dataset.label==='% bill AWO', formatter:v=>fP1(v), align:'top', offset:4, color:cssv('--fg-2'), font:{size:10,weight:'600'}, backgroundColor:cssv('--surface'), borderRadius:3, padding:{top:1,bottom:0,left:3,right:3}}},
+      scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true},y1:{position:'right',beginAtZero:true,grid:{display:false},ticks:{callback:v=>v+'%'}}}}});
+  legend('lg-awo',fams.map(f=>[f,fcol(f)]).concat([['% bill AWO',cssv('--s2')]]));
+  const fg=kmAgg(Ap, r=>PAWO(r.p)); const fl=Object.entries(fg).sort((a,b)=>b[1].ns-a[1].ns);
+  mk('c-awo-pie',{type:'doughnut',data:{labels:fl.map(x=>x[0]),datasets:[{data:fl.map(x=>Math.max(0,x[1].ns)),backgroundColor:fl.map(x=>fcol(x[0])),borderColor:cssv('--surface'),borderWidth:2}]},
+    options:{cutout:'55%',plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,font:{size:11}}},datalabels:DL.pie(T.ns||1),tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtN(c.parsed/1e6)} tr`}}}}});
+  const fmax=fl.length?fl[0][1].ns:0;
+  table('t-awo-fam',['CT AWO','Bill','% bill','Doanh số (tr)','% tỷ trọng DS','Chiết khấu (tr)','%CK','ATV (tr)'],
+    fl.map(([f,v])=>[`<span class="sw" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;background:${fcol(f)}"></span>${f}`,fmtN(v.b),fmtP(v.b,tot.b),bar(fmtB(v.ns),fmax),fmtP(v.ns,tot.ns),fmtB(v.ck),fCK(v.ck,v.ns),fmtM(v.b?v.ns/v.b:0)]),
+    ['Tổng AWO',fmtN(tot.ba),fP1(pb),fmtB(T.ns),fmtP(T.ns,tot.ns),fmtB(T.ck),fCK(T.ck,T.ns),fmtM(T.b?T.ns/T.b:0)]);
+  const pg=kmAgg(Ap, r=>r.p); const pl=Object.entries(pg).sort((a,b)=>b[1].ns-a[1].ns);
+  table('t-awo-prog',['CT AWO','Mã / tên CT','Group','Bill','Doanh số (tr)','% tỷ trọng DS','Chiết khấu (tr)','%CK'],
+    pl.map(([p,v])=>[PAWO(+p),`<span class="nm">${PNAME(+p)}</span>`,`<span class="tag">${PGRP(+p)}</span>`,fmtN(v.b),fmtB(v.ns),fmtP(v.ns,tot.ns),fmtB(v.ck),fCK(v.ck,v.ns)]));
+  const sb=kmAgg(Dp, r=>r.kho); const sa={}; for(const r of Ap){ const g=sa[r.kho]||(sa[r.kho]={}); g[PAWO(r.p)]=(g[PAWO(r.p)]||0)+r.b; }
+  const ba={}; for(const r of Dp){ ba[r.kho]=(ba[r.kho]||0)+r.ba; }
+  const famP=fl.map(x=>x[0]);
+  const srows=Object.keys(sb).filter(k=>sb[k].b>0).sort((a,b)=>pct(ba[b]||0,sb[b].b)-pct(ba[a]||0,sb[a].b));
+  table('t-awo-store',['Cửa hàng','Model','Tổng bill','Bill AWO','% bill AWO','KPI'].concat(famP),
+    srows.map(k=>{ const p=pct(ba[k]||0,sb[k].b); return [k,MODEL_LBL(kModel(k)),fmtN(sb[k].b),fmtN(ba[k]||0),bar(fP1(p),Math.max(30,KPI*2)),p>=KPI?'<span class="pill ok">Đạt</span>':p>=KPI/2?'<span class="pill mid">Gần đạt</span>':'<span class="pill no">Thấp</span>'].concat(famP.map(f=>(sa[k]||{})[f]?fmtN(sa[k][f]):'·')); }));
+}
+function initKM(){
+  const camps={}; for(const r of KPRG){ const c=PCAMP(r.p); camps[c]=(camps[c]||0)+r.ns; }
+  el('fCamp').innerHTML='<option value="">Tất cả chiến dịch</option>'+Object.entries(camps).sort((a,b)=>b[1]-a[1]).map(([c])=>`<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join('');
+  const grps={}; for(const r of KPRG){ const g=PGRP(r.p); grps[g]=(grps[g]||0)+r.ns; }
+  el('fGrp').innerHTML='<option value="">Tất cả group</option>'+Object.entries(grps).sort((a,b)=>b[1]-a[1]).map(([g])=>`<option value="${g}">${g}</option>`).join('');
+  if (!camps[kstate.camp]) kstate.camp=''; if (!grps[kstate.grp]) kstate.grp='';
+  el('fCamp').value=kstate.camp; el('fGrp').value=kstate.grp;
+  for (const [id,key] of [['fCamp','camp'],['fGrp','grp']]) el(id).addEventListener('change',()=>{ kstate[key]=el(id).value; try{localStorage.setItem('cskh-km',JSON.stringify(kstate));}catch(e){} render(); });
+}
+initKM();
+
 /* ---------- wiring ---------- */
 function render(){
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
-  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();}})[state.view]();
+  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO})[state.view]();
   el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
 }

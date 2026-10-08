@@ -97,6 +97,11 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 .def li{margin:2px 0}
 .src{font-size:12px;color:var(--fg-3);margin-top:18px;line-height:1.6}
 .pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:600}.pill.ok{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}.pill.mid{background:color-mix(in srgb,var(--s4) 22%,transparent);color:var(--fg)}.pill.no{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.subbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 14px;font-size:13px;color:var(--fg-2)}
+.subbar select{max-width:100%}
+.tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--surface-2);color:var(--fg-2);font-weight:600;white-space:nowrap}
+.nm{display:inline-block;min-width:260px;max-width:440px;text-align:left;white-space:normal;line-height:1.35}
+#t-km-prog td:nth-child(4),#t-km-prog th:nth-child(4),#t-km-prog th:nth-child(2),#t-awo-prog th:nth-child(2),#t-km-store th:last-child{text-align:left}
 .empty{color:var(--fg-3);font-size:13px;padding:30px;text-align:center}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -107,7 +112,7 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
   <span class="div" aria-hidden="true"></span>
   <div>
     <h1>Dashboard CSKH</h1>
-    <div class="sub"><b id="plabel"></b> · Phân tích khách hàng · Thẻ thành viên · Chương trình sinh nhật — nguồn: BC21 (Ebiz) &amp; CT CRM. Số liệu chưa trừ VAT. Cập nhật <span id="gen"></span>.</div>
+    <div class="sub"><b id="plabel"></b> · Phân tích khách hàng · Thẻ thành viên · Sinh nhật · CTKM — nguồn: BC21 (Ebiz) &amp; CT CRM. Số liệu chưa trừ VAT. Cập nhật <span id="gen"></span>.</div>
   </div>
 </header>
 
@@ -117,6 +122,8 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <button class="tab" role="tab" data-v="seg">Phân tích KH 12M</button>
     <button class="tab" role="tab" data-v="ttv">Thẻ thành viên</button>
     <button class="tab" role="tab" data-v="sn">Sinh nhật KH</button>
+    <button class="tab" role="tab" data-v="km">CTKM</button>
+    <button class="tab" role="tab" data-v="awo">CTKM AWO tại CH</button>
   </div>
   <div class="filters">
     <label for="fType">Kỳ</label>
@@ -208,6 +215,44 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <div class="card c6"><p class="ttl">Theo hình thức liên hệ</p><p class="note">Năm đang chọn — hình thức lấy từ ghi chú của CH</p><div class="tw" id="t-ct-method"></div></div>
     <div class="card c6"><p class="ttl">Nhân viên liên hệ nhiều nhất</p><p class="note">Năm đang chọn — theo tên NV cửa hàng ghi trong file</p><div class="tw" id="t-ct-staff"></div></div>
     <div class="card c12"><p class="ttl">Theo cửa hàng: CH nào làm, CH nào chưa</p><p class="note">Theo kỳ đang chọn — “Chưa thực hiện” khi tỷ lệ liên hệ dưới 5%. Thiếu file của 4 CH: 220, 226, 311, 403 (chưa tải về máy)</p><div class="tw" id="t-ct-store"></div></div>
+  </div>
+</section>
+
+<!-- ============ CTKM ============ -->
+<section class="view" id="v-km">
+  <div class="subbar"><label for="fCamp"><b>Chiến dịch</b></label><select id="fCamp"></select><label for="fGrp"><b>Group CTKM</b></label><select id="fGrp"></select><span id="km-scope" class="note" style="margin:0"></span></div>
+  <div class="kpis" id="km-kpis"></div>
+  <div class="grid">
+    <div class="card c8"><p class="ttl">Doanh số – chiết khấu theo tháng (triệu đồng)</p><p class="note">Cột: doanh số &amp; chiết khấu · đường: %CK · khi chọn kỳ 1 tháng hiện 12 tháng gần nhất (dữ liệu CTKM có từ T10/2025)</p><div class="ch"><canvas id="c-km-month"></canvas></div><div class="legend" id="lg-km"></div></div>
+    <div class="card c4"><p class="ttl">Cơ cấu doanh số theo Group CTKM</p><p class="note">Kỳ đang chọn</p><div class="ch"><canvas id="c-km-grppie"></canvas></div><div class="legend" id="lg-km-grp"></div></div>
+    <div class="card c12"><p class="ttl">Doanh số – % chiết khấu theo tuần</p><p class="note" id="km-week-note">Tuần ISO trong kỳ đang chọn</p><div class="ch s"><canvas id="c-km-week"></canvas></div></div>
+    <div class="card c12"><p class="ttl">Doanh số – % chiết khấu theo ngày</p><p class="note" id="km-day-note"></p><div class="ch s"><canvas id="c-km-day"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Group CTKM</p><p class="note">Doanh số · % tỷ trọng · chiết khấu · %CK — kỳ đang chọn</p><div class="tw" id="t-km-grp"></div></div>
+    <div class="card c6"><p class="ttl">Top 10 CTKM theo doanh số (triệu đồng)</p><p class="note">Không gồm hàng nguyên giá · nhãn = % tỷ trọng trên tổng doanh số</p><div class="ch t"><canvas id="c-km-top"></canvas></div></div>
+    <div class="card c12"><p class="ttl">Hiệu quả từng CTKM</p><p class="note">Sắp theo doanh số · <b>DS / 1đ CK</b> = doanh số tạo ra trên mỗi đồng chiết khấu (càng cao càng hiệu quả) · hiện 30 CTKM đầu</p><div class="tw" id="t-km-prog"></div></div>
+    <div class="card c12"><p class="ttl">Theo chiến dịch (campaign)</p><p class="note">Gộp các CTKM cùng chiến dịch (VD: Woman's Day 8.3 gồm mức giảm 250K và 1T) · cột tháng = doanh số (triệu) từng tháng trong kỳ</p><div class="tw" id="t-km-camp"></div></div>
+    <div class="card c12"><p class="ttl">CTKM theo cửa hàng</p><p class="note">Theo kỳ, cửa hàng, model và chiến dịch đang chọn</p><div class="tw" id="t-km-store"></div></div>
+  </div>
+  <details class="def"><summary>Cách tính CTKM</summary>
+    <ul>
+      <li>Nguồn: sheet chi tiết dòng hàng trong file <b>BC21</b> từng tháng (T10/2025 → nay). Mỗi dòng hàng được gán <b>1 CTKM</b> theo thứ tự: Mã ưu đãi (MUĐ) → Ontop tổng → Ontop → Combo → Chính sách giá / thẻ thành viên (khi có chiết khấu) → <b>Full Price</b> (nguyên giá). Cơ chế chỉ được tính khi có <i>mã</i> (ERP đôi khi ghi tên CT mà không có mã → bỏ qua).</li>
+      <li><b>Doanh số (NetSale)</b> = cột Thanh toán (sau chiết khấu, đã gồm VAT). <b>Chiết khấu</b> = CK+CKHD. <b>%CK</b> = Chiết khấu / (Doanh số + Chiết khấu).</li>
+      <li><b>Group CTKM</b> theo mã CTKM trên ERP, đổi tên cho dễ đọc: BD → CS.SN (sinh nhật KH), thẻ thành viên → CS.MB, MCD-* → MCD.DMGG (chính sách giá), LKMall → MKT.KMMall, ECOM → MKT.ECOM, EMPLOYEE → HR.NV. PO = nhóm CSKH (Follow MV, CSKH sau mua, đăng ký đo khám mắt).</li>
+      <li><b>Chiến dịch</b> = phần tên trước dấu “ - ” của CTKM (VD “Woman's Day 8.3 - Giảm 1T…” → Woman's Day 8.3); các CT AWO gom theo loại.</li>
+      <li>Số bill của một CTKM = số chứng từ có ít nhất 1 dòng hàng thuộc CTKM đó. Biểu đồ tuần / ngày là tổng toàn bộ bán hàng (không lọc theo chiến dịch / group).</li>
+    </ul>
+  </details>
+</section>
+
+<!-- ============ AWO ============ -->
+<section class="view" id="v-awo">
+  <div class="kpis" id="awo-kpis"></div>
+  <div class="grid">
+    <div class="card c8"><p class="ttl">Số bill áp dụng CT AWO theo tháng</p><p class="note">Cột xếp chồng theo loại CT · đường: % bill AWO trên tổng bill · nét đứt: KPI <span id="awo-kpi-v"></span>% bill</p><div class="ch"><canvas id="c-awo-month"></canvas></div><div class="legend" id="lg-awo"></div></div>
+    <div class="card c4"><p class="ttl">Cơ cấu doanh số AWO theo loại CT</p><p class="note">Kỳ đang chọn</p><div class="ch"><canvas id="c-awo-pie"></canvas></div></div>
+    <div class="card c12"><p class="ttl">CT AWO luôn có tại cửa hàng</p><p class="note">Kỳ đang chọn · % tỷ trọng = doanh số CT / tổng doanh số · % bill = bill CT / tổng bill</p><div class="tw" id="t-awo-fam"></div></div>
+    <div class="card c12"><p class="ttl">Chi tiết từng mã CT AWO</p><p class="note">Kỳ đang chọn</p><div class="tw" id="t-awo-prog"></div></div>
+    <div class="card c12"><p class="ttl">AWO theo cửa hàng</p><p class="note">Số bill từng loại CT · <span class="pill ok">Đạt KPI</span> khi % bill AWO ≥ KPI</p><div class="tw" id="t-awo-store"></div></div>
   </div>
 </section>
 
