@@ -26,6 +26,16 @@ def regroup(grp,name):
     if re.search(r"kính cũ",name,re.I) and grp=="MKT.KM": return "MKT.TKC"
     if grp=="BOD": return "BOD.H" if re.search(r"\bC\.? ?Hà\b",name) else "BOD.T"
     return grp
+GENERIC_HEAD=r"(giảm|voucher|vc|tặng|awo|approval|aproval|ecom|bảo hành|cashvoucher|b2b|saleevent)\b"
+def ct_base(name):
+    """Tên CT gốc — gom các mức giảm của cùng 1 CTKM (VD 'Follow MV - Giảm 100K…' và '… 300K…' -> 'Follow MV')."""
+    n=re.sub(r"^P\d+\s+","",name.strip())
+    m=re.match(r"(HSSV\d*)\b",n,re.I)
+    if m: return m.group(1).upper()
+    parts=re.split(r"\s+[-–]\s+|\s*:\s+",n,maxsplit=1)
+    head=parts[0].strip()
+    if len(parts)>1 and len(head)>=3 and not re.match(GENERIC_HEAD,head,re.I): return head
+    return n
 def campaign(name,grp):
     if grp=="Full Price": return "Nguyên giá"
     if grp=="CS.MB": return "Thẻ thành viên"
@@ -60,6 +70,8 @@ d=pd.concat(frames,ignore_index=True); d=d[d.date.str.match(r"\d{4}-\d{2}-\d{2}"
 d["month"]=d.date.str[:7]; d["kho"]=d.kho.map(nfc)
 P=d[["prog","grp"]].drop_duplicates().reset_index(drop=True)
 P["camp"]=[campaign(n,g) for n,g in zip(P.prog,P.grp)]; P["awo"]=[awo(n,g) for n,g in zip(P.prog,P.grp)]
+_disp={}
+P["ct"]=[_disp.setdefault((g,ct_base(n).lower()),ct_base(n)) for n,g in zip(P.prog,P.grp)]
 pidx={(p,g):i for i,(p,g) in enumerate(zip(P.prog,P.grp))}
 d["pi"]=[pidx[(p,g)] for p,g in zip(d.prog,d.grp)]
 d["is_awo"]=d.pi.map(dict(enumerate(P.awo!="")))
@@ -75,7 +87,7 @@ day_rows=[[r.date,int(r.ki),k(r.ns),k(r.ck),int(r.b),int(r.bp),int(r.ba),k(r.nsp
 # theo tháng x cửa hàng x CTKM
 g=d.groupby(["month","ki","pi"]); pr=pd.DataFrame({"ns":g.tt.sum(),"ck":g.ck.sum(),"b":g.bill.nunique()}).reset_index()
 prog_rows=[[r.month,int(r.ki),int(r.pi),k(r.ns),k(r.ck),int(r.b)] for r in pr.itertuples()]
-out={"kho":KHO,"progs":[[p,g,c,a] for p,g,c,a in zip(P.prog,P.grp,P.camp,P.awo)],"day":day_rows,"prog":prog_rows,
+out={"kho":KHO,"progs":[[p,g,c,a,t] for p,g,c,a,t in zip(P.prog,P.grp,P.camp,P.awo,P.ct)],"day":day_rows,"prog":prog_rows,
      "months":sorted(d.month.unique()),"awo_kpi":14,
      "rule":"Gán 1 CTKM/dòng hàng: MUĐ > Ontop tổng > Ontop > Combo > CSGG/Thẻ TV > Nguyên giá. NetSale = Số tiền trước VAT (sau CK); Discount = CK+CKHD quy về trước VAT; %CK = CK/(DS+CK)."}
 dp=os.path.join(WORK,"dash.json"); D=json.load(open(dp,encoding="utf-8")); D["ctkm"]=out
