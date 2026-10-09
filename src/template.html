@@ -102,6 +102,16 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--surface-2);color:var(--fg-2);font-weight:600;white-space:nowrap}
 .nm{display:inline-block;min-width:260px;max-width:440px;text-align:left;white-space:normal;line-height:1.35}
 #t-km-prog td:nth-child(4),#t-km-prog th:nth-child(4),#t-km-prog th:nth-child(2),#t-awo-prog th:nth-child(2),#t-km-store th:last-child{text-align:left}
+.fbsel{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 14px;font-size:13px;color:var(--fg-2)}
+.fbsel input{font:inherit;padding:6px 10px;border:1px solid var(--line-input);border-radius:8px;background:var(--surface);color:var(--fg);min-width:200px}
+.insight{background:var(--accent-soft);border:1px solid var(--line);border-left:4px solid var(--accent-yellow);border-radius:var(--radius);padding:14px 18px;margin:0 0 14px}
+.insight summary{cursor:pointer;font-weight:700}
+.insight ol{margin:10px 0 0;padding-left:20px;line-height:1.6}.insight li{margin:0 0 6px}
+.insight .urgent{color:var(--bad);font-weight:700}
+#t-fb-list td{vertical-align:top}
+#t-fb-list td.txt{white-space:normal;text-align:left;min-width:260px;max-width:460px;line-height:1.4}
+#t-fb-list details summary{cursor:pointer;color:var(--fg)}#t-fb-list details[open] summary{margin-bottom:4px}
+.pill.sev3{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}.pill.sev2{background:color-mix(in srgb,var(--s4) 24%,transparent);color:var(--fg)}.pill.sev1{background:color-mix(in srgb,var(--s3) 18%,transparent);color:var(--fg)}
 .empty{color:var(--fg-3);font-size:13px;padding:30px;text-align:center}
 .warn{border-left:3px solid var(--s4);background:var(--surface-2);border-radius:var(--radius);padding:11px 14px;font-size:13px;color:var(--fg-2);line-height:1.55;margin:0 0 16px}
 .warn b{color:var(--fg)}
@@ -127,6 +137,7 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <button class="tab" role="tab" data-v="km">CTKM</button>
     <button class="tab" role="tab" data-v="awo">CTKM AWO tại CH</button>
     <button class="tab" role="tab" data-v="xnbh">XNBH</button>
+    <button class="tab" role="tab" data-v="fb">Phản hồi KH</button>
   </div>
   <div class="filters">
     <label for="fType">Kỳ</label>
@@ -282,6 +293,33 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     </ul>
   </details>
 </section>
+
+<!-- ============ PHẢN HỒI KH ============ -->
+<section class="view" id="v-fb">
+  <details class="insight" open><summary>Nhận định &amp; đề xuất của CSKH (dữ liệu đến 08/10/2026 · 55 phản hồi)</summary>
+    <ol>
+      <li><b>Phản hồi tăng mạnh từ T7</b> (23 phản hồi trong T7, các tháng khác 1–7) và <b>49% đến từ Google review</b> — tức là phản ánh công khai, ảnh hưởng trực tiếp tới rating cửa hàng. Cần trả lời review trong 24h và kéo KH về kênh riêng để xử lý.</li>
+      <li><b>Vấn đề lớn nhất là cách xử lý khi sản phẩm hư, không chỉ bản thân sản phẩm.</b> 19 phản hồi về lỗi/độ bền (gãy, rỉ, bong tróc lớp phủ) thì 13 kéo theo tranh chấp bảo hành và nhiều ca đi kèm thái độ. Mẫu lặp lại: KH mang kính đến → CH kết luận “lỗi do sử dụng / hết bảo hành” → KH thấy bị đổ thừa → review 1 sao (BTA – KH đi 70km sau khi được hứa qua điện thoại; AeonHD; Montblanc 14 triệu ở BDA; BigC MT). <i>Đề xuất:</i> kịch bản chuẩn khi từ chối bảo hành (giải thích + luôn có phương án thay thế/ưu đãi), không hứa qua điện thoại khi chưa xem SP, báo phí và xin xác nhận trước khi làm.</li>
+      <li><b>Đo mắt &amp; kỹ thuật viên</b>: 13 phản hồi liên quan đo mắt/sai độ, 5 ca thiếu KTV hoặc chờ lâu — <b>ShQH (308) 2 lần KH đến không có người đo</b> (T6, T9); 2 ca KH bị “giữ kết quả đo nếu không mua” (183 – 302, HpBL – 303). <i>Đề xuất:</i> lịch KTV phủ khung tối, quy định luôn cho KH biết kết quả đo.</li>
+      <li><b>Chính sách đổi trả / hoàn tiền</b> (6 ca): KH không chấp nhận “chỉ đổi, không hoàn chênh lệch”, kể cả trả trong ngày; có KH nước ngoài (Đồng Khởi). <i>Đề xuất:</i> nói rõ và cho KH xác nhận chính sách trước khi thanh toán; cân nhắc ngoại lệ trả trong ngày.</li>
+      <li><b>Hàng trưng bày / không còn mới</b> (4 ca: ParcMall, LandMark, BTA): cần báo trước khi bán hàng trưng bày, kiểm tra ngoại quan cùng KH và có ưu đãi đi kèm.</li>
+      <li class="urgent">Cần kiểm tra ngay: AeonHD (228) 20/07 — KH phản ánh NV yêu cầu chuyển khoản vào tài khoản cá nhân, quẹt thẻ của NV, hóa đơn sai thông tin. Ngoài ra 321 Nguyễn Trãi đã đóng cửa nhưng Google Maps vẫn hiện “đang mở”.</li>
+      <li><b>Cửa hàng cần ưu tiên</b>: theo số lượng — AeonHD (5: thái độ, phí bảo hành, đổi trả, thanh toán), BTA (5), HpBL (4), BDA (4), ShQH (4); tính trên số bill bán thì <b>ShQH cao nhất (~43 phản hồi / 10.000 bill)</b>, tiếp theo AeonHD, BTA, ParcMall (~28).</li>
+      <li><b>Quy trình CS</b>: 50/55 đã có phản hồi; còn 3 phản ánh T8 (BigC MT, BDA, 183) chưa ghi phản hồi CS. Cột <i>Startus</i> đang trống toàn bộ nên chưa theo dõi được ca nào đã đóng / KH đã hài lòng — nên ghi: Đang xử lý · Đã đóng – KH hài lòng · Đã đóng – KH chưa hài lòng.</li>
+    </ol>
+  </details>
+  <div class="fbsel"><label for="fbCh"><b>Kênh</b></label><select id="fbCh"></select><label for="fbCt"><b>Nội dung</b></label><select id="fbCt"></select><label for="fbTag"><b>Vấn đề</b></label><select id="fbTag"></select><label for="fbSev"><b>Mức độ</b></label><select id="fbSev"><option value="">Tất cả</option><option value="3">Nghiêm trọng</option><option value="2">Không hài lòng</option><option value="1">Góp ý</option></select><input id="fbQ" type="search" placeholder="Tìm trong nội dung…"></div>
+  <div class="kpis" id="fb-kpis"></div>
+  <div class="grid">
+    <div class="card c8"><p class="ttl">Số phản hồi theo tháng</p><p class="note">Xếp chồng theo nội dung phản ánh (cột Content)</p><div class="ch"><canvas id="c-fb-month"></canvas></div><div class="legend" id="lg-fb"></div></div>
+    <div class="card c4"><p class="ttl">Theo kênh tiếp nhận</p><p class="note">Kỳ đang chọn</p><div class="ch"><canvas id="c-fb-ch"></canvas></div><div class="legend" id="lg-fb-ch"></div></div>
+    <div class="card c6"><p class="ttl">Vấn đề cụ thể</p><p class="note">Tự nhận diện theo từ khoá trong nội dung KH phản ánh · 1 phản hồi có thể nhiều vấn đề · màu đỏ = phần nghiêm trọng</p><div class="ch t"><canvas id="c-fb-tag"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Nội dung &amp; nhóm</p><p class="note">Theo cột Content, xếp chồng theo Group (Offline / Bảo hành / Online)</p><div class="ch t"><canvas id="c-fb-ct"></canvas></div><div class="legend" id="lg-fb-ct"></div></div>
+    <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Kỳ đang chọn · <b>/10.000 bill</b> = số phản hồi trên 10.000 bill bán của CH trong cùng kỳ (để so sánh công bằng giữa CH lớn và nhỏ; số bill có đến tháng dữ liệu BC21 gần nhất)</p><div class="tw" id="t-fb-store"></div></div>
+    <div class="card c12"><p class="ttl">Chi tiết phản hồi</p><p class="note" id="fb-list-note">Bấm vào nội dung để xem đầy đủ · SĐT / tên KH đã được che</p><div class="tw" id="t-fb-list"></div></div>
+  </div>
+</section>
+
 
 </div>
 

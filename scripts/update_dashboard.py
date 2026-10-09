@@ -41,6 +41,8 @@ def sources():
         p = os.path.join(BC21, f)
         if os.path.exists(p): out["bc21:" + f] = p
     out["sn:CT CRM.2023.xlsx"] = CTCRM
+    for f in glob.glob(os.path.join(BAOCAO, "CS report", "Ph*n h*i c*a KH.xlsx")):   # tab Phản hồi KH
+        out["fb:" + os.path.basename(f)] = f
     for f in sorted(glob.glob(os.path.join(os.path.dirname(ROOT), "BNR*.xlsx"))):   # tab XNBH (BNR & NPS)
         if not os.path.basename(f).startswith("~$"): out["xnbh:" + os.path.basename(f)] = f
     for f in sorted(glob.glob(os.path.join(STORE_DIR, "[0-9][0-9][0-9] - *.xlsx"))):
@@ -151,6 +153,8 @@ def extract(changed=None):
                 for r in ws.iter_rows(values_only=True):
                     w.writerow(["" if v is None else (v.strftime("%Y-%m-%d") if isinstance(v, datetime.datetime) else v) for v in r[:13]])
             print(f"  {k} -> sn2023.csv [{time.time()-t:.0f}s]")
+        elif k.startswith("fb:"):
+            print(f"  {k} (đọc trực tiếp ở bước compute)")
         elif k.startswith("xnbh:"):
             print(f"  {k} (đọc trực tiếp ở bước compute)")
         elif k.startswith("store:"):
@@ -162,7 +166,7 @@ def extract(changed=None):
 
 def compute(wait=False):
     status = os.path.join(WORK, "compute.status")
-    cmd = f'cd "{WORK}" && echo running > compute.status && python3 "{HERE}/compute.py" > compute.log 2>&1 && python3 "{HERE}/contact.py" >> compute.log 2>&1 && python3 "{HERE}/ctkm.py" >> compute.log 2>&1 && python3 "{HERE}/xnbh.py" >> compute.log 2>&1 && echo done > compute.status || echo failed > compute.status'
+    cmd = f'cd "{WORK}" && echo running > compute.status && python3 "{HERE}/compute.py" > compute.log 2>&1 && python3 "{HERE}/contact.py" >> compute.log 2>&1 && python3 "{HERE}/ctkm.py" >> compute.log 2>&1 && python3 "{HERE}/xnbh.py" >> compute.log 2>&1 && python3 "{HERE}/feedback.py" >> compute.log 2>&1 && echo done > compute.status || echo failed > compute.status'
     subprocess.Popen(["bash", "-c", cmd], start_new_session=True)
     print("COMPUTE started (xem .work/compute.status)")
     if wait:

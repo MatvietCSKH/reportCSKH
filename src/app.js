@@ -597,11 +597,92 @@ function renderXNBH(){
   el('xn-src').textContent = X.src || '–';
 }
 
+/* ================= PHẢN HỒI KH ================= */
+const FB = D.fb || {rows:[],tags:[]};
+LABELS['c-fb-month']=LABELS['c-fb-tag']=LABELS['c-fb-ct']=()=>({stackTotals:stackTot(fmtN)});
+const fbst = {ch:'', ct:'', tag:'', sev:'', q:''};
+const SEV_LBL = {3:'Nghiêm trọng',2:'Không hài lòng',1:'Góp ý',0:'Chưa có nội dung'};
+const fbCode = r => (r.kho||'').slice(0,3);
+const fbKho = r => { const s=D.stores.find(x=>x.kho.startsWith(fbCode(r)+'-')); return s?s.kho:r.kho; };
+const fbOkStore = r => { if (state.store && fbCode(r)!==storeCode(state.store)) return false; const s=D.stores.find(x=>x.kho.startsWith(fbCode(r)+'-')); return !s || state.models.has(MODELS.includes(s.model)?s.model:'6. Khác'); };
+const fbOkSel = r => (!fbst.ch||r.ch===fbst.ch) && (!fbst.ct||r.ct===fbst.ct) && (!fbst.tag||r.tags.includes(fbst.tag)) && (!fbst.sev||String(r.sev)===fbst.sev) && (!fbst.q||(r.note+' '+r.rep+' '+r.kho).toLowerCase().includes(fbst.q.toLowerCase()));
+const esc = t => String(t||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function renderFB(){
+  const all = FB.rows.filter(r=>fbOkStore(r)&&fbOkSel(r));
+  const rows = all.filter(r=>r.m&&inPeriod(r.m));
+  const S1=cssv('--s1'), S2=cssv('--s2'), S3=cssv('--s3'), S4=cssv('--s4'), BAD=cssv('--bad'), GREY=cssv('--t6');
+  const PAL=[S1,S3,S4,S2,cssv('--t3'),cssv('--t2'),cssv('--t5'),cssv('--s8')];
+  // bill trong kỳ để tính tỷ lệ / 10.000 bill
+  const billBy={}; let billT=0; const KD=(typeof KDAY!=='undefined')?KDAY:[];
+  for(const r of KD){ if(!inPeriod(r.m)) continue; const c=r.kho.slice(0,3); if(state.store&&c!==storeCode(state.store)) continue; if(!state.models.has(kModel(r.kho))) continue; billBy[c]=(billBy[c]||0)+r.b; billT+=r.b; }
+  const n=rows.length, sev3=rows.filter(r=>r.sev===3).length, rep=rows.filter(r=>r.cs).length, gg=rows.filter(r=>r.ch==='Google').length;
+  const noSt=rows.filter(r=>!r.st).length;
+  el('fb-kpis').innerHTML=[
+    kpi('Tổng phản hồi', fmtN(n), n? fmtN(new Set(rows.map(fbCode).filter(Boolean)).size)+' cửa hàng bị phản ánh' : 'Không có phản hồi trong kỳ', null, true),
+    kpi('Nghiêm trọng', fmtN(sev3), n? fmtP(sev3,n)+' — KH nói bỏ đi / 1 sao / nghi gian lận' : '–', BAD),
+    kpi('Đã có phản hồi CS', n? fmtP(rep,n) : '–', fmtN(n-rep)+' phản hồi chưa ghi nội dung CS'+(noSt===n&&n?' · cột Startus đang trống':''), S3),
+    kpi('Google review', fmtN(gg), n? fmtP(gg,n)+' — phản ánh công khai' : '–', S4),
+    kpi('Phản hồi / 10.000 bill', billT? (1e4*n/billT).toLocaleString('vi-VN',{maximumFractionDigits:1}) : '–', billT? 'trên '+fmtN(billT)+' bill bán trong kỳ' : 'chưa có số bill của kỳ'),
+  ].join('');
+  // theo tháng × content
+  const fbMonths=[...new Set(FB.rows.map(r=>r.m).filter(Boolean))].sort();
+  let [pf,pt]=periodRange(); if(state.ptype==='month'||state.ptype==='mtd'){ const y=+pt.slice(0,4), mo=+pt.slice(5)-11; pf = mo>0? mkey(y,mo) : mkey(y-1,mo+12); }
+  const ms=[]; if(fbMonths.length){ let a=pf>fbMonths[0]?pf:fbMonths[0]; const b=pt<fbMonths[fbMonths.length-1]?pt:fbMonths[fbMonths.length-1]; while(a<=b){ ms.push(a); let y=+a.slice(0,4), mo=+a.slice(5)+1; if(mo>12){y++;mo=1;} a=mkey(y,mo); } }
+  const rowsC = all.filter(r=>ms.includes(r.m));
+  const ctCount={}; rowsC.forEach(r=>ctCount[r.ct]=(ctCount[r.ct]||0)+1);
+  const cts=Object.entries(ctCount).sort((a,b)=>b[1]-a[1]).map(x=>x[0]); const topCt=cts.slice(0,6); const ctKey=c=>topCt.includes(c)?c:'Khác';
+  const keys=topCt.concat(cts.length>6?['Khác']:[]);
+  const colCt=k=>k==='Khác'?GREY:PAL[keys.indexOf(k)%PAL.length];
+  mk('c-fb-month',{type:'bar',data:{labels:ms.map(mLbl),datasets:keys.map(k=>barDs(k,ms.map(m=>rowsC.filter(r=>r.m===m&&ctKey(r.ct)===k).length),colCt(k),{stack:'s'}))},
+    options:{plugins:{tooltip:ttN,datalabels:DL.inside(v=>v||'',.2)},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,grace:'10%',ticks:{precision:0}}}}});
+  legend('lg-fb',keys.map(k=>[k,colCt(k)]));
+  // kênh
+  const chC={}; rows.forEach(r=>chC[r.ch]=(chC[r.ch]||0)+1); const chL=Object.entries(chC).sort((a,b)=>b[1]-a[1]);
+  mk('c-fb-ch',{type:'doughnut',data:{labels:chL.map(x=>x[0]),datasets:[{data:chL.map(x=>x[1]),backgroundColor:chL.map((x,i)=>PAL[i%PAL.length]),borderColor:cssv('--surface'),borderWidth:2}]},
+    options:{cutout:'55%',plugins:{datalabels:DL.pie(n||1),tooltip:{callbacks:{label:c=>` ${c.label}: ${c.parsed} (${fmtP(c.parsed,n)})`}}}}});
+  legend('lg-fb-ch',chL.map((x,i)=>[x[0]+' · '+x[1],PAL[i%PAL.length]]));
+  // vấn đề cụ thể
+  const tg={}; rows.forEach(r=>r.tags.forEach(t=>{ const g=tg[t]||(tg[t]={n:0,s3:0}); g.n++; if(r.sev===3) g.s3++; }));
+  const tl=Object.entries(tg).sort((a,b)=>b[1].n-a[1].n);
+  mk('c-fb-tag',{type:'bar',data:{labels:tl.map(x=>x[0]),datasets:[barDs('Nghiêm trọng',tl.map(x=>x[1].s3),BAD,{stack:'s',maxBarThickness:18}),barDs('Khác',tl.map(x=>x[1].n-x[1].s3),S1,{stack:'s',maxBarThickness:18})]},
+    options:{indexAxis:'y',plugins:{tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.x}`}},datalabels:DL.inside(v=>v||'',.25)},scales:{x:{stacked:true,beginAtZero:true,ticks:{precision:0}},y:{stacked:true,ticks:{font:{size:10.5}}}}}});
+  // content × group
+  const grps=[...new Set(rows.map(r=>r.grp))]; const ctL=[...new Set(rows.map(r=>r.ct))].sort((a,b)=>rows.filter(r=>r.ct===b).length-rows.filter(r=>r.ct===a).length);
+  const gcol=g=>({'Offline':S1,'Bảo hành':S2,'Online':S3}[g]||GREY);
+  mk('c-fb-ct',{type:'bar',data:{labels:ctL,datasets:grps.map(g=>barDs(g,ctL.map(c=>rows.filter(r=>r.ct===c&&r.grp===g).length),gcol(g),{stack:'s',maxBarThickness:18}))},
+    options:{indexAxis:'y',plugins:{tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.x}`}},datalabels:DL.inside(v=>v||'',.25)},scales:{x:{stacked:true,beginAtZero:true,ticks:{precision:0}},y:{stacked:true,ticks:{font:{size:10.5}}}}}});
+  legend('lg-fb-ct',grps.map(g=>[g,gcol(g)]));
+  // cửa hàng
+  const st={}; rows.forEach(r=>{ const c=fbCode(r)||'–'; const g=st[c]||(st[c]={kho:fbKho(r)||'(Không ghi CH)',n:0,s3:0,rep:0,tags:{},ch:{}}); g.n++; if(r.sev===3) g.s3++; g.rep+=r.cs; r.tags.forEach(t=>g.tags[t]=(g.tags[t]||0)+1); g.ch[r.ch]=(g.ch[r.ch]||0)+1; });
+  const sl=Object.entries(st).sort((a,b)=>b[1].n-a[1].n||b[1].s3-a[1].s3); const smax=sl.length?sl[0][1].n:0;
+  const top2=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]).slice(0,2).map(x=>x[0]+' ('+x[1]+')').join(', ');
+  table('t-fb-store',['Cửa hàng','Model','AM','Phản hồi','Nghiêm trọng','/10.000 bill','Đã phản hồi CS','Vấn đề chính','Kênh'],
+    sl.map(([c,g])=>{ const s=D.stores.find(x=>x.kho.startsWith(c+'-'))||{}; const b=billBy[c]||0; return [g.kho,MODEL_LBL(s.model||''),s.am||'–',bar(fmtN(g.n),smax),g.s3?`<span class="pill sev3">${g.s3}</span>`:'·',b?(1e4*g.n/b).toLocaleString('vi-VN',{maximumFractionDigits:1}):'–',fmtP(g.rep,g.n),`<span class="nm">${top2(g.tags)||'–'}</span>`,top2(g.ch)]; }),
+    n?['Tổng','','',fmtN(n),fmtN(sev3),billT?(1e4*n/billT).toLocaleString('vi-VN',{maximumFractionDigits:1}):'–',fmtP(rep,n),'','']:null);
+  // chi tiết
+  const lst=rows.slice().sort((a,b)=>b.d.localeCompare(a.d));
+  const cut=(t,k)=>t.length>k?esc(t.slice(0,k))+'…':esc(t);
+  el('t-fb-list').innerHTML = lst.length ? '<table><tr><th>Ngày</th><th>Kênh</th><th>Cửa hàng</th><th>Nội dung</th><th>Mức độ</th><th style="text-align:left">KH phản ánh</th><th style="text-align:left">Phản hồi CS</th></tr>'+
+    lst.map(r=>`<tr><td>${r.d?r.d.slice(8)+'/'+r.d.slice(5,7)+'/'+r.d.slice(2,4):'–'}</td><td>${esc(r.ch)}</td><td>${esc(r.kho)}</td><td style="text-align:left;white-space:normal;min-width:150px">${esc(r.ct)}<br>${r.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join(' ')}</td><td><span class="pill sev${r.sev}">${SEV_LBL[r.sev]}</span></td>`+
+      `<td class="txt">${r.note? (r.note.length>140?`<details><summary>${cut(r.note,140)}</summary>${esc(r.note)}</details>`:esc(r.note)) : '<i>(trống)</i>'}</td>`+
+      `<td class="txt">${r.rep? (r.rep.length>110?`<details><summary>${cut(r.rep,110)}</summary>${esc(r.rep)}</details>`:esc(r.rep)) : '<span class="pill no">Chưa ghi phản hồi</span>'}</td></tr>`).join('')+'</table>'
+    : '<div class="empty">Không có phản hồi trong kỳ / bộ lọc này. Dữ liệu phản hồi có từ '+(fbMonths.length?mLbl(fbMonths[0]):'–')+' — thử chọn Kỳ = Năm 2026 hoặc Tất cả.</div>';
+  el('fb-list-note').textContent = 'Bấm vào nội dung để xem đầy đủ · SĐT / tên KH đã được che · nguồn: CS report › '+(FB.src||'')+' (cập nhật file '+(FB.mtime||'–')+')';
+}
+function initFB(){
+  const opt=(arr,all)=>'<option value="">'+all+'</option>'+arr.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  const cnt=k=>{ const o={}; FB.rows.forEach(r=>{ (Array.isArray(r[k])?r[k]:[r[k]]).forEach(v=>o[v]=(o[v]||0)+1); }); return Object.entries(o).sort((a,b)=>b[1]-a[1]).map(x=>x[0]); };
+  el('fbCh').innerHTML=opt(cnt('ch'),'Tất cả'); el('fbCt').innerHTML=opt(cnt('ct'),'Tất cả'); el('fbTag').innerHTML=opt(cnt('tags'),'Tất cả');
+  for (const [id,k] of [['fbCh','ch'],['fbCt','ct'],['fbTag','tag'],['fbSev','sev']]) el(id).addEventListener('change',()=>{ fbst[k]=el(id).value; render(); });
+  let t; el('fbQ').addEventListener('input',()=>{ clearTimeout(t); t=setTimeout(()=>{ fbst.q=el('fbQ').value.trim(); render(); },250); });
+}
+initFB();
+
 /* ---------- wiring ---------- */
 function render(){
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
-  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,xnbh:renderXNBH})[state.view]();
+  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,xnbh:renderXNBH,fb:renderFB})[state.view]();
   el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
 }
