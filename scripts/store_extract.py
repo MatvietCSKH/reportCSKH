@@ -1,4 +1,4 @@
-import openpyxl, sys, os, re, csv, datetime, warnings, time, unicodedata
+import collections, openpyxl, sys, os, re, csv, datetime, warnings, time, unicodedata
 warnings.filterwarnings("ignore")
 BASE=os.path.expanduser("~/mnt/OneDrive - Mat Viet Group/Store - Data CSKH/2024")
 OUT=os.path.join(os.getcwd(),"store")
@@ -37,9 +37,16 @@ for f in sys.argv[1:]:
     except Exception as e: print("ERR",f,str(e)[:60]); continue
     rows=[]; log=[]
     yms=assign_years([ws.title for ws in wb.worksheets])
+    THIS_YEAR=datetime.date.today().year
+    used={(y,m) for y,m in (x for x in yms if x)}
+    prev_y=None
     for ws,ym in zip(wb.worksheets,yms):
         if not ym: continue
+        if ym[0]>THIS_YEAR:                      # gõ nhầm năm, vd "SNKH T9.29" -> lấy năm sheet trước
+            ym=(prev_y or THIS_YEAR, ym[1])
+        prev_y=ym[0]
         month=f"{ym[0]}-{ym[1]:02d}"
+        srows=[]; bm=collections.Counter()
         it=ws.iter_rows(values_only=True); hdr=None; hrow=0
         for i,r in enumerate(it):
             if i>6: break
@@ -49,6 +56,7 @@ for f in sys.argv[1:]:
         # phone col
         pc=next((hdr.index(x) for x in PHONECOLS if x in hdr),None)
         if pc is None: pc=0
+        bc=hdr.index("ngày sinh") if "ngày sinh" in hdr else None
         ncols=[j for j,h in enumerate(hdr) if j>pc and h not in BASECOLS and not re.match(r"^\d{4}-\d{2}-\d{2}",h) and h not in ("q1.2025",)]
         # note columns = non-base headers OR empty headers (but only after base block)
         n=0; noted=0; empty=0
@@ -70,7 +78,20 @@ for f in sys.argv[1:]:
                 elif h in ("nhân viên gọi","nv","nv gọi","staff","nhân viên","nv ","người gọi"): staff=staff or v
                 else: note=(note+" | " if note else "")+v[:60]
             if vals: noted+=1
-            rows.append([store,month,ws.title,ph,bool(vals),staff[:40],date,method,note[:120]])
+            if bc is not None and bc<len(r) and r[bc] is not None:
+                b=r[bc]
+                if isinstance(b,(datetime.datetime,datetime.date)): bm[b.month]+=1
+                else:
+                    mm=re.match(r"^\d{1,2}[/.-](\d{1,2})[/.-]\d{2,4}",str(b).strip())
+                    if mm and 1<=int(mm.group(1))<=12: bm[int(mm.group(1))]+=1
+            srows.append([store,month,ws.title,ph,bool(vals),staff[:40],date,method,note[:120]])
+        # tên sheet gõ nhầm tháng (vd "SNKH T01.26" mà KH đều sinh tháng 10) -> theo tháng sinh đa số
+        if bm and sum(bm.values())>=10:
+            top,cnt=bm.most_common(1)[0]
+            if top!=ym[1] and cnt>=0.8*sum(bm.values()) and (ym[0],top) not in used:
+                month=f"{ym[0]}-{top:02d}"; used.add((ym[0],top))
+                for x in srows: x[1]=month
+        rows.extend(srows)
         log.append(f"{ws.title}→{month}:{n}/{noted}")
     with open(os.path.join(OUT,f"store_{store}.csv"),"w",newline="",encoding="utf-8") as fo:
         w=csv.writer(fo); w.writerow(["store","month","sheet","phone","noted","staff","date","method","note"]); w.writerows(rows)
