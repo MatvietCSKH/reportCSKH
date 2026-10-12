@@ -24,7 +24,7 @@ BC21 = os.path.join(BAOCAO, "Data BC21")
 STORE_DIR = os.path.join(OD, "Store - Data CSKH", "2024")
 CTCRM = os.path.join(BAOCAO, "CT CRM.2023.xlsx")
 SKIP_STORES = {"220", "226", "311", "403"}  # CH bỏ qua (file chỉ trên cloud)
-MONTH_FILE = re.compile(r"^T\d{1,2}(\.\d{2,4})?( ?\d)?\.(xlsx|xls)$", re.I)
+MONTH_FILE = re.compile(r"^(T\d{1,2}(\.\d{2,4})?( ?\d)?|\d{2} - \d{4})\.(xlsx|xls)$", re.I)   # T10.xlsx hoặc file tạm giữa tháng "01 - 1110.xls"
 
 def sources():
     out = {}
@@ -146,6 +146,10 @@ def extract(changed=None):
             subprocess.run([sys.executable, os.path.join(HERE, "ctkm_extract.py"), "--out", os.path.join(WORK, "ctkm", f"lines_{m}.csv"), p], check=True, capture_output=True)
             print(f"  {k} -> ctkm/lines_{m}.csv [{time.time()-t:.0f}s]")
         elif k.startswith("sn:"):
+            try:                                     # nhanh (~80s) bằng python-calamine
+                subprocess.run([sys.executable, os.path.join(HERE, "sn_fast.py"), p, os.path.join(WORK, "sn2023.csv")], check=True, capture_output=True)
+                print(f"  {k} -> sn2023.csv [{time.time()-t:.0f}s]"); done.append(k); continue
+            except Exception: pass                    # thiếu calamine -> openpyxl (chậm)
             import openpyxl
             wb = openpyxl.load_workbook(p, read_only=True, data_only=True); ws = wb["SN2023"]
             with open(os.path.join(WORK, "sn2023.csv"), "w", newline="", encoding="utf-8") as f:
