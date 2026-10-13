@@ -522,49 +522,76 @@ function initKM(){
 initKM();
 
 /* ================= XNBH — BNR & xác nhận bảo hành ================= */
-const X = D.xnbh || {rows:[],months:[],stores:{},mode:{},mism:{},src:''};
+const X = D.xnbh || {rows:[],months:[],stores:{},mode:{},mism:{},bad:{},src:''};
 const XSM = X.stores || {};
 const xAgg = () => ({kh:0,sets:0,xnb:0,xno:0,npsb:0,npso:0,mism:0,rows:0});
 function xSum(list){ const t=xAgg(); for(const r of list) for(const k in t) t[k]+=r[k]||0; return t; }
 const xOK = r => (!state.store || r.kho===state.store) && (!r.model || state.models.has(r.model) || !MODELS.includes(r.model));
 const xProf = (kho,f) => (XSM[kho]||{})[f] || '–';
 const xRate = t => t.kh ? 100*t.xnb/t.kh : 0;
+const xSkip = v => !v || v==='–' || v==='Online' || v==='ZNS_CTA';
+/* Nhóm địa lý — là giả thuyết phân tích theo vị trí cửa hàng, KHÔNG phải cột dữ liệu:
+   lõi du lịch Q1 (227 Đồng Khởi, 230 Diamond, 218 Landmark) + khu người nước ngoài sinh sống (117 Estella, 106 Vivo) */
+const X_INTL  = new Set(['227','230','218','117','106']);
+const X_NORTH = new Set(['Hà Nội','Nghệ An','Đà Nẵng']);
+const X_GEO   = ['Tỉnh/thành khác','TPHCM ngoài lõi du lịch','Lõi du lịch Q1 + khu người nước ngoài','Cụm Bắc & Trung'];
+function xGeo(kho){ const kv=xProf(kho,'khuvuc'); if (X_INTL.has(storeCode(kho))) return X_GEO[2]; if (xSkip(kv)) return ''; if (X_NORTH.has(kv)) return X_GEO[3]; return kv==='TPHCM' ? X_GEO[1] : X_GEO[0]; }
+const fD = v => (v>0?'+':'')+(+v).toLocaleString('vi-VN',{maximumFractionDigits:1,minimumFractionDigits:1});
+const xDelta = (d, unit=' điểm') => d==null ? '–' : `<span class="${d>=0?'dpos':'dneg'}">${d>=0?'▲':'▼'} ${fD(d)}${unit}</span>`;
+const xCut = (rows, keyFn) => { const o={}; for(const r of rows){ const k=keyFn(r); if(xSkip(k)) continue; const g=o[k]||(o[k]=xAgg()); for(const kk in g) g[kk]+=r[kk]||0; } return o; };
+const xFrac = (a,b) => fmtN(a)+' / '+fmtN(b);
+const xList = arr => arr.join(', ');
 
 function renderXNBH(){
   const S1=cssv('--s1'), S3=cssv('--s3'), GREY=cssv('--t6'), ACC=cssv('--accent'), BAD=cssv('--bad');
   const all = X.rows.filter(xOK);
-  const ms  = X.months.filter(inChart);
-  const pm  = X.months.filter(inPeriod);
-  const cur = all.filter(r=>inPeriod(r.month));
+  let   pm  = X.months.filter(inPeriod), fallback = false;
+  if (!pm.length && X.months.length){ pm = [X.months[X.months.length-1]]; fallback = true; }   // kỳ chọn chưa có file BNR -> hiện tháng gần nhất có dữ liệu
+  let   ms  = X.months.filter(inChart); if (!ms.length) ms = X.months.slice(-12);
+  const cur = all.filter(r=>pm.includes(r.month));
+  const plab = fallback ? mLbl(pm[0]) : periodLabel();
   const T   = xSum(cur);
-  const byM = {}; for(const r of all.filter(x=>inChart(x.month))){ const g=byM[r.month]||(byM[r.month]=xAgg()); for(const k in g) g[k]+=r[k]||0; }
+  const byM = {}; for(const r of all){ const g=byM[r.month]||(byM[r.month]=xAgg()); for(const k in g) g[k]+=r[k]||0; }
   const G = m => byM[m] || xAgg();
 
   if (!X.rows.length || !pm.length){
     el('xn-kpis').innerHTML = '';
     el('xn-warn').innerHTML = '<b>Chưa có dữ liệu BNR cho kỳ này.</b> Dữ liệu XNBH hiện có từ ' + (X.months[0]||'–') + ' đến ' + (X.months[X.months.length-1]||'–') + '.';
-    ['t-xn-store','t-xn-month'].forEach(i=>el(i).innerHTML='<div class="empty">Không có dữ liệu cho kỳ này</div>');
-    ['c-xn-month','c-xn-pie','c-xn-am','c-xn-tier'].forEach(i=>{ if(charts[i]){charts[i].destroy(); delete charts[i];} });
+    el('xn-notes').innerHTML = ''; el('xn-notes-ctx').textContent = '';
+    ['t-xn-mom','t-xn-move','xn-am','t-xn-store','t-xn-month'].forEach(i=>el(i).innerHTML='<div class="empty">Không có dữ liệu cho kỳ này</div>');
+    ['c-xn-month','c-xn-pie','c-xn-tier'].forEach(i=>{ if(charts[i]){charts[i].destroy(); delete charts[i];} });
     el('xn-src').textContent = X.src || '–';
     return;
   }
 
+  /* ---- tháng gần nhất trong kỳ (mC) và tháng liền trước (mP) để so sánh diễn biến ---- */
+  const mC = pm[pm.length-1], iC = X.months.indexOf(mC), mP = iC>0 ? X.months[iC-1] : null;
+  const RC = all.filter(r=>r.month===mC), RP = mP ? all.filter(r=>r.month===mP) : [];
+  const TC = xSum(RC), TP = xSum(RP);
+  const avg = xRate(T), lowAvg = avg - 2;   // ngưỡng tô đỏ: kém TB từ 2 điểm %
+  const cmpOK = !!(mP && TP.kh && TC.kh);
+  const dRate = cmpOK ? xRate(TC)-xRate(TP) : null;
+  const perKh = t => t.kh ? (t.sets/t.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}) : '–';
+
   el('xn-kpis').innerHTML = [
-    kpi('Tỷ lệ XNBH / KH nhận BNR', fP1(xRate(T)), fmtN(T.xnb)+' / '+fmtN(T.kh)+' KH nhận BNR', null, true),
-    kpi('KH nhận BNR', fmtN(T.kh), periodLabel()+' · TB '+fmtN(pm.length?T.kh/pm.length:0)+'/tháng', S1),
-    kpi('Số BNR đã tặng', fmtN(T.sets), (T.kh? (T.sets/T.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–')+' bộ / khách'),
+    kpi('Tỷ lệ XNBH / KH nhận BNR', fP1(avg), xFrac(T.xnb,T.kh)+' KH nhận BNR' + (dRate!=null ? ' · <span style="color:var(--accent-yellow);font-weight:700">'+(dRate>=0?'▲':'▼')+' '+fD(dRate)+' điểm</span> '+mLbl(mC)+' so với '+mLbl(mP) : ''), null, true),
+    kpi('KH nhận BNR', fmtN(T.kh), plab+' · TB '+fmtN(pm.length?T.kh/pm.length:0)+'/tháng', S1),
+    kpi('Số BNR đã tặng', fmtN(T.sets), perKh(T)+' bộ / khách'),
     kpi('Lượt XNBH / NPS', fmtN(T.xnb+T.xno), fmtN(T.xno)+' lượt không kèm BNR', S3),
     kpi('KH nhận BNR chưa XNBH', fmtN(T.kh-T.xnb), fP1(T.kh?100*(T.kh-T.xnb)/T.kh:0)+' — dư địa khai thác', GREY),
   ].join('');
 
   const grantMs = pm.filter(m=>(X.mode[m]||'flag')==='grant');
   const mismT   = pm.reduce((a,m)=>a+((X.mism||{})[m]||0),0);
-  el('xn-warn').innerHTML = grantMs.length
+  const badT    = pm.reduce((a,m)=>a+((X.bad ||{})[m]||0),0);
+  el('xn-warn').innerHTML = (fallback ? '<b>Kỳ '+periodLabel()+' chưa có dữ liệu BNR</b> — đang hiển thị '+mLbl(pm[0])+', tháng gần nhất có file. ' : '') + (grantMs.length
     ? '<b>Cảnh báo cách ghi dữ liệu — '+grantMs.map(mLbl).join(', ')+'.</b> Trong (các) tháng này mọi dòng có SL KH đều mang XNBH = Yes, nên cột XNBH chỉ lặp lại việc “có nhận BNR hay không” và <b>không cho biết ai đã xác nhận bảo hành</b>. Tỷ lệ của các tháng đó sẽ đội lên gần 100% — cần sửa file nguồn trước khi dùng con số này.'
     : mismT
     ? '<b>Cột XNBH và cột NPS đang lệch nhau ở '+fmtN(mismT)+' dòng</b> trong kỳ này. Báo cáo lấy cột XNBH làm chuẩn; nên rà lại file nguồn để hai cột khớp.'
-    : 'Cột <b>XNBH</b> và cột <b>NPS</b> khớp nhau hoàn toàn trong kỳ này ('+fmtN(T.xnb+T.xno)+' lượt) nên hai chỉ số báo cáo chung. Trong đó <b>'+fmtN(T.xno)+'</b> lượt đến từ khách không nhận BNR — các lượt này không nằm trong mẫu số của tỷ lệ chuyển đổi.';
+    : 'Cột <b>XNBH</b> và cột <b>NPS</b> khớp nhau hoàn toàn trong kỳ này ('+fmtN(T.xnb+T.xno)+' lượt) nên hai chỉ số báo cáo chung. <b>'+fmtN(T.xno)+'</b> lượt đến từ khách không nhận BNR — không nằm trong mẫu số của tỷ lệ.')
+    + (badT ? ' <b>'+fmtN(badT)+' dòng</b> trong kỳ có Tier / Khu vực / AM lệch với chính cửa hàng đó (file nguồn điền sai); báo cáo dùng giá trị phổ biến nhất của từng cửa hàng nên số theo AM / khu vực / tier vẫn đúng, nhưng nên sửa file.' : '');
 
+  /* ---- chart theo tháng + cơ cấu ---- */
   const lbl = ms.map(mLbl);
   mk('c-xn-month',{data:{labels:lbl,datasets:[
       barDs('KH nhận BNR',ms.map(m=>G(m).kh),S1,{borderWidth:0,yAxisID:'y'}),
@@ -578,35 +605,136 @@ function renderXNBH(){
     options:{cutout:'58%',plugins:{tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtN(c.parsed)} (${fmtP(c.parsed,T.xnb+T.xno)})`}}}}});
   legend('lg-xn-pie',[['XNBH kèm BNR',S3],['XNBH không kèm BNR',GREY]]);
 
-  const avg = xRate(T), lowAvg = avg - 2;   // ngưỡng tô đỏ: kém TB từ 2 điểm %
-  const byKey = f => { const o={}; for(const r of cur){ const k=xProf(r.kho,f); const g=o[k]||(o[k]=xAgg()); for(const kk in g) g[kk]+=r[kk]||0; } return o; };
-  const amG = byKey('am'), amK = Object.keys(amG).filter(k=>k!=='–'&&k!=='Online'&&k!=='ZNS_CTA'&&amG[k].kh).sort((a,b)=>xRate(amG[b])-xRate(amG[a]));
-  mk('c-xn-am',{type:'bar',data:{labels:amK.map(k=>'AM '+k),datasets:[barDs('% đã XNBH',amK.map(k=>xRate(amG[k])),amK.map(k=>xRate(amG[k])>=lowAvg?S3:BAD),{borderWidth:0,maxBarThickness:30})]},
-    options:{indexAxis:'y',plugins:{tooltip:{callbacks:{label:c=>{const g=amG[amK[c.dataIndex]];return ` ${fmtN(g.xnb)}/${fmtN(g.kh)} KH · ${c.parsed.x.toFixed(1)}% (TB ${avg.toFixed(1)}%)`;}}}},scales:{x:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}},y:{ticks:{autoSkip:false}}}}});
+  /* ---- các lát cắt của tháng gần nhất & tháng trước ---- */
+  const cutC = {am:xCut(RC,r=>xProf(r.kho,'am')), tier:xCut(RC,r=>xProf(r.kho,'tier')), geo:xCut(RC,r=>xGeo(r.kho)), st:xCut(RC,r=>r.kho)};
+  const cutP = {am:xCut(RP,r=>xProf(r.kho,'am')), tier:xCut(RP,r=>xProf(r.kho,'tier')), geo:xCut(RP,r=>xGeo(r.kho)), st:xCut(RP,r=>r.kho)};
+  const rateOr = (o,k) => (o[k]&&o[k].kh) ? xRate(o[k]) : null;
+  const amKeys  = Object.keys(cutC.am).sort((a,b)=>xRate(cutC.am[b])-xRate(cutC.am[a]));
+  const tierKeys= ['Platinum','Gold','Silver'].filter(k=>cutC.tier[k]&&cutC.tier[k].kh);
+  const geoKeys = X_GEO.filter(k=>cutC.geo[k]&&cutC.geo[k].kh);
 
-  const tierG = byKey('tier'), areaG = byKey('khuvuc');
+  /* Diễn biến so với tháng trước */
+  if (cmpOK){
+    const line = (lbl,c,p) => { const rc=c&&c.kh?xRate(c):null, rp=p&&p.kh?xRate(p):null;
+      return [lbl, rp==null?'–':fP1(rp), rc==null?'–':'<b>'+fP1(rc)+'</b>', (rc!=null&&rp!=null)?xDelta(rc-rp,''):'–', c?xFrac(c.xnb,c.kh):'–']; };
+    const sec = t => [`<span class="tag">${t}</span>`,'','','',''];
+    const rows = [line('<b>'+(state.store||'Toàn hệ thống')+'</b>',TC,TP), sec('Theo AM')];
+    amKeys.forEach(k=>rows.push(line('AM '+k,cutC.am[k],cutP.am[k])));
+    rows.push(sec('Theo tier')); tierKeys.forEach(k=>rows.push(line(k,cutC.tier[k],cutP.tier[k])));
+    rows.push(sec('Theo nhóm địa lý')); geoKeys.forEach(k=>rows.push(line(k,cutC.geo[k],cutP.geo[k])));
+    table('t-xn-mom',['Nhóm',mLbl(mP),mLbl(mC),'Thay đổi (điểm %)','XNBH / KH '+mLbl(mC)],rows);
+  } else el('t-xn-mom').innerHTML = '<div class="empty">Chưa có tháng liền trước để so sánh</div>';
+
+  /* Biến động mạnh nhất theo cửa hàng (≥15 KH ở cả hai tháng) */
+  const movers = cmpOK ? Object.keys(cutC.st).filter(k=>!xSkip(xProf(k,'am')) && cutC.st[k].kh>=15 && (cutP.st[k]||{}).kh>=15)
+    .map(k=>({kho:k,c:cutC.st[k],p:cutP.st[k],d:xRate(cutC.st[k])-xRate(cutP.st[k])})).sort((a,b)=>b.d-a.d) : [];
+  const up5 = movers.filter(x=>x.d>0).slice(0,5), dn5 = movers.filter(x=>x.d<0).slice(-5).reverse();
+  if (movers.length){
+    const mrow = x => [x.kho, xProf(x.kho,'am'), fP1(xRate(x.p)), '<b>'+fP1(xRate(x.c))+'</b>', xDelta(x.d,''), xFrac(x.c.xnb,x.c.kh)];
+    const rows = [];
+    if (up5.length){ rows.push([`<span class="tag">Tăng mạnh nhất</span>`,'','','','','']); up5.forEach(x=>rows.push(mrow(x))); }
+    if (dn5.length){ rows.push([`<span class="tag">Giảm mạnh nhất</span>`,'','','','','']); dn5.forEach(x=>rows.push(mrow(x))); }
+    table('t-xn-move',['Cửa hàng','AM',mLbl(mP),mLbl(mC),'Thay đổi (điểm %)','XNBH / KH '+mLbl(mC)],rows);
+  } else el('t-xn-move').innerHTML = '<div class="empty">'+(cmpOK?'Không có cửa hàng nào đủ 15 KH ở cả hai tháng':'Chưa có tháng liền trước để so sánh')+'</div>';
+
+  /* Theo AM phụ trách — cả kỳ đang chọn */
+  const amG = xCut(cur,r=>xProf(r.kho,'am')), stG = xCut(cur,r=>r.kho);
+  const amAll = Object.keys(amG).filter(k=>amG[k].kh).sort((a,b)=>xRate(amG[a])-xRate(amG[b]));   // thấp nhất xếp trên
+  const amInfo = {};
+  amAll.forEach(am => { const st=Object.keys(stG).filter(k=>xProf(k,'am')===am && stG[k].kh);
+    const bad=st.filter(k=>xRate(stG[k])<25).sort((a,b)=>xRate(stG[a])-xRate(stG[b]));
+    amInfo[am]={st,bad,badKh:bad.reduce((a,k)=>a+stG[k].kh,0),good:st.filter(k=>xRate(stG[k])>=avg).length}; });
+  el('xn-am').innerHTML = amAll.map((am,i)=>{ const a=amInfo[am]; return `<div class="amcard${i===0&&amAll.length>1?' flag':''}">
+      <div class="amtop"><div><b>AM ${am}</b><div class="note">${a.st.length} CH · ${fmtN(amG[am].kh)} KH nhận BNR · ${a.good}/${a.st.length} CH đạt từ TB trở lên</div></div><div class="ambig">${fP1(xRate(amG[am]))}</div></div>
+      <div class="note"><b>${a.bad.length} CH dưới 25%</b> · ${fmtN(a.badKh)} KH (${fP1(amG[am].kh?100*a.badKh/amG[am].kh:0)} lượng khách của AM)</div>
+      ${a.bad.length ? '<div class="amlist">'+a.bad.map(k=>`<span>${k} <b>${fP1(xRate(stG[k]))}</b> <small>${xFrac(stG[k].xnb,stG[k].kh)}</small></span>`).join('')+'</div>' : ''}
+    </div>`; }).join('') || '<div class="empty">Không có dữ liệu</div>';
+
+  /* Tier & khu vực — kỳ đang chọn */
+  const tierG = xCut(cur,r=>xProf(r.kho,'tier')), areaG = xCut(cur,r=>xProf(r.kho,'khuvuc'));
   const TK = ['Platinum','Gold','Silver'].filter(k=>tierG[k]&&tierG[k].kh);
-  const AK = Object.keys(areaG).filter(k=>k!=='–'&&k!=='Online'&&k!=='ZNS_CTA'&&areaG[k].kh).sort((a,b)=>areaG[b].kh-areaG[a].kh).slice(0,6);
+  const AK = Object.keys(areaG).filter(k=>areaG[k].kh).sort((a,b)=>areaG[b].kh-areaG[a].kh).slice(0,6);
   const tLbl = [...TK.map(k=>'Tier: '+k), ...AK.map(k=>'KV: '+k)];
   const tVal = [...TK.map(k=>xRate(tierG[k])), ...AK.map(k=>xRate(areaG[k]))];
   const tG   = [...TK.map(k=>tierG[k]), ...AK.map(k=>areaG[k])];
   mk('c-xn-tier',{type:'bar',data:{labels:tLbl,datasets:[barDs('% đã XNBH',tVal,tLbl.map((l,i)=>l.startsWith('Tier')?ACC:(tVal[i]>=lowAvg?S3:BAD)),{borderWidth:0,maxBarThickness:18})]},
-    options:{indexAxis:'y',plugins:{tooltip:{callbacks:{label:c=>` ${fmtN(tG[c.dataIndex].xnb)}/${fmtN(tG[c.dataIndex].kh)} KH · ${c.parsed.x.toFixed(1)}%`}}},scales:{x:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}},y:{ticks:{autoSkip:false,font:{size:10.5}}}}}});
+    options:{indexAxis:'y',plugins:{tooltip:{callbacks:{label:c=>` ${xFrac(tG[c.dataIndex].xnb,tG[c.dataIndex].kh)} KH · ${c.parsed.x.toFixed(1)}%`}}},scales:{x:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'}},y:{ticks:{autoSkip:false,font:{size:10.5}}}}}});
 
-  const stG = {}; for(const r of cur){ const g=stG[r.kho]||(stG[r.kho]=xAgg()); for(const k in g) g[k]+=r[k]||0; }
+  /* Bảng theo cửa hàng */
   const srow = Object.entries(stG).sort((a,b)=>b[1].kh-a[1].kh);
   const smax = srow.length? srow[0][1].kh : 0;
-  const pillX = p => p>=avg ? '<span class="pill ok">Trên TB</span>' : p>=avg/2 ? '<span class="pill mid">Dưới TB</span>' : '<span class="pill no">Rất thấp</span>';
-  table('t-xn-store',['Cửa hàng','Tier','Khu vực','AM','KH nhận BNR','BNR tặng','BNR/KH','Đã XNBH','% đã XNBH','XNBH lẻ','Đánh giá'],
-    srow.map(([kho,g])=>[kho,xProf(kho,'tier'),xProf(kho,'khuvuc'),xProf(kho,'am'),bar(fmtN(g.kh),smax),fmtN(g.sets),g.kh?(g.sets/g.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–',fmtN(g.xnb),g.kh?fP1(xRate(g)):'–',fmtN(g.xno),g.kh?pillX(xRate(g)):'–']),
-    ['Tổng '+srow.length+' CH','','','',fmtN(T.kh),fmtN(T.sets),T.kh?(T.sets/T.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–',fmtN(T.xnb),fP1(avg),fmtN(T.xno),'']);
+  const pillX = g => { const p=xRate(g); return (p>=avg ? '<span class="pill ok">Trên TB</span>' : p>=avg/2 ? '<span class="pill mid">Dưới TB</span>' : '<span class="pill no">Rất thấp</span>') + (g.kh<30 ? ' <span class="tag" title="Dưới 30 KH nhận BNR — tỷ lệ dễ biến động">mẫu nhỏ</span>' : ''); };
+  table('t-xn-store',['Cửa hàng','Tier','Khu vực','AM','KH nhận BNR','BNR tặng','BNR/KH','Đã XNBH','% đã XNBH','So với TB (điểm %)','XNBH lẻ','Đánh giá'],
+    srow.map(([kho,g])=>[kho,xProf(kho,'tier'),xProf(kho,'khuvuc'),xProf(kho,'am'),bar(fmtN(g.kh),smax),fmtN(g.sets),perKh(g),fmtN(g.xnb),g.kh?'<b>'+fP1(xRate(g))+'</b>':'–',g.kh?xDelta(xRate(g)-avg,''):'–',fmtN(g.xno),g.kh?pillX(g):'–']),
+    ['Tổng '+srow.length+' CH','','','',fmtN(T.kh),fmtN(T.sets),perKh(T),fmtN(T.xnb),fP1(avg),'',fmtN(T.xno),'']);
 
-  const allM = X.months.filter(m=>all.some(r=>r.month===m));
-  const byMa = {}; for(const r of all){ const g=byMa[r.month]||(byMa[r.month]=xAgg()); for(const k in g) g[k]+=r[k]||0; }
+  /* Bảng theo tháng */
+  const allM = X.months.filter(m=>byM[m]);
   const Ta = xSum(all);
-  table('t-xn-month',['Tháng','KH nhận BNR','BNR tặng','BNR/KH','Đã XNBH','% đã XNBH','XNBH không kèm BNR','XNBH lệch NPS'],
-    allM.map(m=>{const g=byMa[m];return [mLbl(m)+(X.mode[m]==='grant'?' <span class="pill no">cột XNBH không dùng được</span>':''),fmtN(g.kh),fmtN(g.sets),g.kh?(g.sets/g.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–',fmtN(g.xnb),g.kh?fP1(xRate(g)):'–',fmtN(g.xno),fmtN((X.mism||{})[m]||0)];}),
-    ['Tổng '+allM.length+' tháng',fmtN(Ta.kh),fmtN(Ta.sets),Ta.kh?(Ta.sets/Ta.kh).toLocaleString('vi-VN',{maximumFractionDigits:2}):'–',fmtN(Ta.xnb),fP1(xRate(Ta)),fmtN(Ta.xno),fmtN(Ta.mism)]);
+  table('t-xn-month',['Tháng','KH nhận BNR','BNR tặng','BNR/KH','Đã XNBH','% đã XNBH','So với tháng trước','XNBH không kèm BNR','XNBH lệch NPS','Tier/KV/AM lệch'],
+    allM.map((m,i)=>{const g=byM[m], p=i?byM[allM[i-1]]:null; return [mLbl(m)+(X.mode[m]==='grant'?' <span class="pill no">cột XNBH không dùng được</span>':''),fmtN(g.kh),fmtN(g.sets),perKh(g),fmtN(g.xnb),g.kh?'<b>'+fP1(xRate(g))+'</b>':'–',(g.kh&&p&&p.kh)?xDelta(xRate(g)-xRate(p),''):'–',fmtN(g.xno),fmtN((X.mism||{})[m]||0),fmtN((X.bad||{})[m]||0)];}),
+    ['Tổng '+allM.length+' tháng',fmtN(Ta.kh),fmtN(Ta.sets),perKh(Ta),fmtN(Ta.xnb),fP1(xRate(Ta)),'',fmtN(Ta.xno),fmtN(Ta.mism),fmtN(allM.reduce((a,m)=>a+((X.bad||{})[m]||0),0))]);
+
+  /* ---- Đọc nhanh: nhận định tự sinh từ số liệu ---- */
+  const notes = [];
+  const nSt = srow.filter(([k,g])=>g.kh).length, above = srow.filter(([k,g])=>g.kh && xRate(g)>=avg).length;
+  notes.push(`<b>${plab}</b>: ${fmtN(T.kh)} KH nhận BNR, ${fmtN(T.sets)} BNR (${perKh(T)} BNR/KH), tỷ lệ XNBH <b>${fP1(avg)}</b>. ${above}/${nSt} cửa hàng đạt từ mức TB trở lên; ${fmtN(T.kh-T.xnb)} KH nhận BNR chưa XNBH là dư địa khai thác.`);
+  if (cmpOK){
+    const amTxt = amKeys.map(k=>{const rc=rateOr(cutC.am,k), rp=rateOr(cutP.am,k); return rc!=null&&rp!=null ? `AM ${k} ${fP1(rp)} → <b>${fP1(rc)}</b> (${fD(rc-rp)})` : null;}).filter(Boolean);
+    let s = `<b>So với ${mLbl(mP)}</b>: ${state.store||'toàn hệ thống'} ${fP1(xRate(TP))} → <b>${fP1(xRate(TC))}</b> (${fD(dRate)} điểm)` + (amTxt.length ? '; ' + xList(amTxt) : '') + '.';
+    if (up5.length && dn5.length){
+      const big = Math.max(up5[0].d, -dn5[0].d);
+      s += ` Ở cấp cửa hàng: ${up5[0].kho} ${fD(up5[0].d)} điểm, ${dn5[0].kho} ${fD(dn5[0].d)} điểm` + (big>=30
+        ? ` chỉ trong một tháng, cùng tệp khách — <b>biên độ này cho thấy chỉ số phụ thuộc việc nhân viên có làm bước XNBH hay không, không phải đặc điểm khách hàng</b>.`
+        : ` — biến động theo cửa hàng ở mức vừa phải.`);
+    }
+    notes.push(s);
+  }
+  if (tierKeys.length>1){
+    const ordC = tierKeys.slice().sort((a,b)=>xRate(cutC.tier[b])-xRate(cutC.tier[a]));
+    let s = `<b>Theo tier ${mLbl(mC)}</b>: ` + xList(ordC.map(k=>`${k} ${fP1(xRate(cutC.tier[k]))}`)) + '.';
+    if (cmpOK && tierKeys.every(k=>cutP.tier[k]&&cutP.tier[k].kh)){
+      const ordP = tierKeys.slice().sort((a,b)=>xRate(cutP.tier[b])-xRate(cutP.tier[a]));
+      s += ordC.join('>')!==ordP.join('>')
+        ? ` Trật tự đã đổi so với ${mLbl(mP)} (${xList(ordP.map(k=>`${k} ${fP1(xRate(cutP.tier[k]))}`))}) — đặc điểm cấu trúc của tier không đổi trong một tháng, nên <b>chênh lệch giữa các tier không đến từ tier hay tệp khách mà từ cách vận hành ở từng cửa hàng</b>.`
+        : ` Thứ tự giữ nguyên so với ${mLbl(mP)}.`;
+    }
+    notes.push(s);
+  }
+  if (cutC.geo[X_GEO[2]] && cutC.geo[X_GEO[1]]){
+    const iC2=xRate(cutC.geo[X_GEO[2]]), hC=xRate(cutC.geo[X_GEO[1]]), gap=hC-iC2;
+    const iP=rateOr(cutP.geo,X_GEO[2]), hP=rateOr(cutP.geo,X_GEO[1]);
+    let s = `<b>Giả thuyết “khách quốc tế / người nước ngoài khó xin thông tin để XNBH”</b> (5 CH: 227 Đồng Khởi, 230 Diamond, 218 Landmark, 117 Estella, 106 Vivo): nhóm này ${fP1(iC2)} so với TPHCM ngoài lõi ${fP1(hC)}` + (iP!=null&&hP!=null ? ` (${mLbl(mP)}: ${fP1(iP)} so với ${fP1(hP)})` : '') + '. ';
+    s += gap < 10
+      ? 'Chênh lệch nhỏ — <b>giả thuyết không được dữ liệu ủng hộ</b>; nguyên nhân là vận hành ở từng cửa hàng.'
+      : `Nhóm này vẫn thấp hơn ${fD(gap)} điểm — chỉ giữ giả thuyết ở phạm vi hẹp và phải kiểm chứng bằng ghi nhận thực tế tại cửa hàng.`;
+    const low = Object.keys(cutC.st).filter(k=>X_INTL.has(storeCode(k)) && cutC.st[k].kh>=15 && xRate(cutC.st[k])<25).map(k=>`${k} ${fP1(xRate(cutC.st[k]))}`);
+    if (low.length) s += ` Riêng ${xList(low)} vẫn ở đáy.`;
+    if (cutC.geo[X_GEO[3]]){ const nC=xRate(cutC.geo[X_GEO[3]]), nP=rateOr(cutP.geo,X_GEO[3]); const lowest = geoKeys.every(k=>xRate(cutC.geo[k])>=nC);
+      s += ` Cụm Bắc & Trung ${nP!=null?fP1(nP)+' → ':''}<b>${fP1(nC)}</b>` + (lowest ? ' — thấp nhất hệ thống, là vấn đề riêng, không liên quan khách nước ngoài.' : '.'); }
+    notes.push(s);
+  }
+  if (amAll.length){
+    const lo = amAll[0], hi = amAll[amAll.length-1], gapAM = xRate(amG[hi])-xRate(amG[lo]);
+    let s = amAll.length<2 ? '' : (gapAM<3)
+      ? `<b>Hai AM ngang nhau</b>: ${xList(amAll.map(k=>`AM ${k} ${fP1(xRate(amG[k]))}`))}.`
+      : `<b>AM cần lưu ý: ${lo}</b> — tỷ lệ thấp nhất (${fP1(xRate(amG[lo]))}` + (amAll.length>1 ? `, kém AM ${hi} ${f1(gapAM)} điểm` : '') + ').';
+    amAll.filter(k=>amInfo[k].bad.length).forEach(k=>{ const a=amInfo[k]; s += ` AM ${k} có <b>${a.bad.length} CH dưới 25%</b> (${fmtN(a.badKh)} KH, ${fP1(amG[k].kh?100*a.badKh/amG[k].kh:0)} lượng khách của AM): ${xList(a.bad.slice(0,5).map(x=>`${x} ${fP1(xRate(stG[x]))}`))}.`; });
+    const drops = dn5.filter(x=>x.d<=-15).slice(0,2);
+    if (drops.length) s += ` Sụt mạnh nhất: ${xList(drops.map(x=>`${x.kho} (AM ${xProf(x.kho,'am')}) ${fP1(xRate(x.p))} → ${fP1(xRate(x.c))}`))} — sập kiểu này thường do đổi người / đổi ca / bỏ bước quy trình, cần hỏi cửa hàng ngay.`;
+    if (cmpOK && amKeys.length>1){ const ordP = amKeys.filter(k=>rateOr(cutP.am,k)!=null).sort((x,y)=>rateOr(cutP.am,x)-rateOr(cutP.am,y));
+      if (ordP.length>1 && rateOr(cutP.am,ordP[1])-rateOr(cutP.am,ordP[0])>=3 && ordP[0]!==lo) s += ` ${mLbl(mP)} người cần lưu ý là AM ${ordP[0]} (${fP1(rateOr(cutP.am,ordP[0]))}).`; }
+    if (s) notes.push(s);
+  }
+  if (cmpOK){
+    const chronic = Object.keys(cutC.st).filter(k=>!xSkip(xProf(k,'am')) && cutC.st[k].kh>=15 && (cutP.st[k]||{}).kh>=15 && xRate(cutC.st[k])<25 && xRate(cutP.st[k])<25)
+      .sort((a,b)=>xRate(cutC.st[a])-xRate(cutC.st[b])).map(k=>`${k} (${fP1(xRate(cutP.st[k]))} → ${fP1(xRate(cutC.st[k]))})`);
+    if (chronic.length) notes.push(`<b>Dưới 25% hai tháng liên tiếp</b>: ${xList(chronic)} — không còn là biến động mà là <span class="urgent">tình trạng ổn định ở mức sai</span>, cần xử lý dứt điểm.`);
+  }
+  const xnoTop = Object.entries(stG).filter(([k,g])=>g.xno).sort((a,b)=>b[1].xno-a[1].xno).slice(0,3).map(([k,g])=>`${k} ${fmtN(g.xno)}`);
+  if (T.xno) notes.push(`${fmtN(T.xno)} lượt XNBH không kèm BNR (nhiều nhất: ${xList(xnoTop)}) được tính vào tổng XNBH nhưng không nằm trong mẫu số tỷ lệ.` + (badT ? ` <b>Chất lượng dữ liệu</b>: ${fmtN(badT)} dòng có Tier / Khu vực / AM lệch với cửa hàng — nên sửa ở file nguồn.` : ''));
+  el('xn-notes-ctx').textContent = '· ' + plab + (cmpOK ? ' · so với ' + mLbl(mP) : '');
+  el('xn-notes').innerHTML = notes.map(t=>`<li>${t}</li>`).join('');
 
   el('xn-src').textContent = X.src || '–';
 }

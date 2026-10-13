@@ -47,6 +47,7 @@ def main():
 
     agg = collections.defaultdict(lambda: {"rows": 0, "kh": 0, "sets": 0, "xnb": 0, "xno": 0, "npsb": 0, "npso": 0, "mism": 0, "xor": 0})
     prof = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
+    cls = []          # (tháng, CH, Tier, Khu vực, AM) từng dòng -> đếm dòng phân loại lệch với CH
     nrow = 0
     for r in it:
         if not any(v is not None for v in r): continue
@@ -70,9 +71,12 @@ def main():
             else: a["npso"] += 1
         if yes != nps: a["mism"] += 1          # cột XNBH và NPS lệch nhau
         if yes != (kh > 0): a["xor"] += 1      # XNBH khác với "có nhận BNR"
+        cv = []
         for c in ("Tier", "Khu vực", "AM"):
-            v = g(r, c)
-            if v: prof[kho][c][str(v).strip()] += 1
+            v = str(g(r, c) or "").strip()
+            cv.append(v)
+            if v: prof[kho][c][v] += 1
+        cls.append((m, kho, cv[0], cv[1], cv[2]))
 
     # model của cửa hàng lấy từ dash.json để dùng chung bộ lọc Model
     d = json.load(open(DASH, encoding="utf-8"))
@@ -84,6 +88,13 @@ def main():
                   "am": c["AM"].most_common(1)[0][0] if c["AM"] else ""} for k, c in prof.items()}
     months = sorted({r["month"] for r in rows})
 
+    # Số dòng mỗi tháng có Tier / Khu vực / AM khác với giá trị phổ biến của chính CH đó (file nguồn điền sai).
+    bad = {m: 0 for m in months}
+    for m, kho, tv, kv, av in cls:
+        s = stores.get(kho, {})
+        if (tv and tv != s.get("tier")) or (kv and kv != s.get("khuvuc")) or (av and av != s.get("am")):
+            bad[m] = bad.get(m, 0) + 1
+
     # Ngữ nghĩa cột XNBH theo từng tháng.
     # Dò bằng số dòng mà (XNBH=Yes) khác với (có nhận BNR): gần 0 nghĩa là cột XNBH
     # chỉ lặp lại việc có nhận BNR hay không -> không đo được chuyển đổi.
@@ -94,7 +105,7 @@ def main():
         mode[m] = "grant" if nr and xor <= max(2, 0.005 * nr) else "flag"
         mism[m] = sum(r["mism"] for r in rs)
 
-    d["xnbh"] = {"rows": rows, "months": months, "stores": stores, "mode": mode, "mism": mism,
+    d["xnbh"] = {"rows": rows, "months": months, "stores": stores, "mode": mode, "mism": mism, "bad": bad,
                  "src": os.path.basename(src), "nrow": nrow,
                  "generated": datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}
     json.dump(d, open(DASH, "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
@@ -103,7 +114,7 @@ def main():
         for k in ("kh", "sets", "xnb", "xno", "npsb", "npso", "mism"): tot[k] += r[k]
     print(f"XNBH ok: {os.path.basename(src)} · {nrow} dòng · {len(months)} tháng ({months[0]}→{months[-1]}) · "
           f"{len(set(r['kho'] for r in rows))} CH · KH nhận BNR {tot['kh']} · XNBH kèm BNR {tot['xnb']} · XNBH lẻ {tot['xno']}")
-    print("   cột XNBH theo tháng:", mode, "| số dòng XNBH lệch NPS:", mism)
+    print("   cột XNBH theo tháng:", mode, "| số dòng XNBH lệch NPS:", mism, "| dòng Tier/KV/AM lệch:", bad)
 
 if __name__ == "__main__":
     main()

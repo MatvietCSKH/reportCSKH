@@ -115,6 +115,16 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 .empty{color:var(--fg-3);font-size:13px;padding:30px;text-align:center}
 .warn{border-left:3px solid var(--s4);background:var(--surface-2);border-radius:var(--radius);padding:11px 14px;font-size:13px;color:var(--fg-2);line-height:1.55;margin:0 0 16px}
 .warn b{color:var(--fg)}
+.amcard{border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;margin:0 0 10px;background:var(--surface-2)}
+.amcard.flag{border-left:4px solid var(--bad)}
+.amtop{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.amcard .note{margin:2px 0 0}
+.ambig{font-family:var(--font-cond);font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+.amlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.amlist span{font-size:12px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+.amlist span b{color:var(--bad)}.amlist small{color:var(--fg-3)}
+.dpos{color:var(--good);font-weight:600}.dneg{color:var(--bad);font-weight:600}
+#t-xn-mom td:first-child,#t-xn-move td:first-child{white-space:normal}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
@@ -276,21 +286,26 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 <section class="view" id="v-xnbh">
   <div class="kpis" id="xn-kpis"></div>
   <div class="warn" id="xn-warn"></div>
+  <details class="insight" open><summary>Đọc nhanh <span id="xn-notes-ctx" style="font-weight:400;color:var(--fg-3)"></span></summary><ol id="xn-notes"></ol></details>
   <div class="grid">
     <div class="card c8"><p class="ttl">KH nhận BNR &amp; tỷ lệ XNBH theo tháng</p><p class="note">Cột: số KH nhận bộ nước rửa kính · đường: % KH nhận BNR đã xác nhận bảo hành</p><div class="ch"><canvas id="c-xn-month"></canvas></div><div class="legend" id="lg-xn"></div></div>
     <div class="card c4"><p class="ttl">Cơ cấu lượt XNBH</p><p class="note">Kỳ đang chọn · XNBH kèm BNR so với XNBH không kèm BNR</p><div class="ch"><canvas id="c-xn-pie"></canvas></div><div class="legend" id="lg-xn-pie"></div></div>
-    <div class="card c6"><p class="ttl">Tỷ lệ XNBH / KH nhận BNR theo AM</p><p class="note">Kỳ đang chọn · nét đứt: trung bình hệ thống</p><div class="ch s"><canvas id="c-xn-am"></canvas></div></div>
-    <div class="card c6"><p class="ttl">Tỷ lệ XNBH / KH nhận BNR theo tier &amp; khu vực</p><p class="note">Kỳ đang chọn</p><div class="ch s"><canvas id="c-xn-tier"></canvas></div></div>
-    <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Kỳ đang chọn · <span class="pill ok">Trên TB</span> khi tỷ lệ XNBH ≥ trung bình hệ thống · sắp theo số KH nhận BNR</p><div class="tw" id="t-xn-store"></div></div>
+    <div class="card c6"><p class="ttl">Diễn biến so với tháng trước</p><p class="note">Tỷ lệ XNBH / KH nhận BNR của tháng gần nhất trong kỳ so với tháng liền trước · theo AM, tier và nhóm địa lý</p><div class="tw" id="t-xn-mom"></div></div>
+    <div class="card c6"><p class="ttl">Tỷ lệ XNBH / KH nhận BNR theo tier &amp; khu vực</p><p class="note">Kỳ đang chọn · đỏ: kém trung bình hệ thống từ 2 điểm %</p><div class="ch s"><canvas id="c-xn-tier"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Biến động mạnh nhất theo cửa hàng</p><p class="note">Tháng gần nhất so với tháng liền trước · chỉ tính cửa hàng có ≥ 15 KH nhận BNR ở cả hai tháng</p><div class="tw" id="t-xn-move"></div></div>
+    <div class="card c6"><p class="ttl">Theo AM phụ trách</p><p class="note">Kỳ đang chọn · AM có tỷ lệ thấp nhất xếp trên · liệt kê cửa hàng dưới 25% (gần như không thu được XNBH dù vẫn phát BNR)</p><div id="xn-am"></div></div>
+    <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Kỳ đang chọn · <span class="pill ok">Trên TB</span> khi tỷ lệ XNBH ≥ trung bình hệ thống · <span class="pill no">Rất thấp</span> khi dưới một nửa trung bình · sắp theo số KH nhận BNR</p><div class="tw" id="t-xn-store"></div></div>
     <div class="card c12"><p class="ttl">Theo tháng</p><p class="note">Toàn hệ thống theo bộ lọc cửa hàng / model</p><div class="tw" id="t-xn-month"></div></div>
   </div>
   <details class="def"><summary>Xem định nghĩa &amp; lưu ý dữ liệu</summary>
     <ul>
       <li><b>KH nhận BNR</b> = cột “SL KH” trong file BNR (mỗi dòng là một khách được tặng bộ nước rửa kính). <b>Số BNR tặng</b> = cột “SL tặng” — một khách có thể nhận nhiều bộ.</li>
       <li><b>Lượt XNBH</b> = dòng có cột XNBH = Yes. Tách làm hai: <b>XNBH kèm BNR</b> (khách vừa nhận BNR vừa xác nhận bảo hành) và <b>XNBH không kèm BNR</b> (xác nhận bảo hành nhưng không nhận bộ — không nằm trong mẫu số tỷ lệ).</li>
-      <li><b>Tỷ lệ XNBH / KH nhận BNR</b> = XNBH kèm BNR ÷ KH nhận BNR. Cột NPS trùng khít cột XNBH nên hai chỉ số báo cáo chung.</li>
-      <li><b>Hai cảnh báo tự động</b>: (1) nếu trong tháng nào mọi dòng có SL KH đều mang XNBH = Yes thì cột XNBH chỉ lặp lại việc “có nhận BNR hay không”, không đo được chuyển đổi — tháng đó bị đánh dấu để sửa file nguồn; (2) nếu cột XNBH và cột NPS lệch nhau, số dòng lệch sẽ hiện ở ô cảnh báo và ở bảng theo tháng.</li>
-      <li>Tier / Khu vực / AM lấy theo giá trị xuất hiện nhiều nhất của từng cửa hàng trong file BNR (chống các dòng bị điền sai). Bộ lọc Kỳ / Cửa hàng / Model dùng chung với các tab khác.</li>
+      <li><b>Tỷ lệ XNBH / KH nhận BNR</b> = XNBH kèm BNR ÷ KH nhận BNR. Cột NPS trùng khít cột XNBH nên hai chỉ số báo cáo chung. <b>Điểm %</b> = hiệu của hai tỷ lệ (vd 54,6% → 70,2% là +15,6 điểm).</li>
+      <li><b>So sánh tháng</b>: lấy tháng gần nhất trong kỳ đang chọn so với tháng liền trước. So sánh <b>tỷ lệ</b> giữa hai tháng là hợp lệ; so sánh <b>số lượng</b> thì không nếu tháng mới chưa đủ ngày. Cửa hàng dưới 30 KH nhận BNR được gắn “mẫu nhỏ” — tỷ lệ dễ biến động.</li>
+      <li><b>Nhóm địa lý</b> là giả thuyết phân tích đặt ra theo vị trí cửa hàng, không phải cột dữ liệu: “Lõi du lịch Q1 + khu người nước ngoài” gồm 227 Đồng Khởi, 230 Diamond Q1, 218 Landmark 81, 117 Estella, 106 Vivo City; “Cụm Bắc &amp; Trung” gồm Hà Nội, Nghệ An, Đà Nẵng; còn lại tách TPHCM và tỉnh/thành khác.</li>
+      <li><b>Cảnh báo tự động</b>: (1) tháng nào mọi dòng có SL KH đều mang XNBH = Yes thì cột XNBH không đo được chuyển đổi — tháng đó bị đánh dấu để sửa file nguồn; (2) cột XNBH và cột NPS lệch nhau; (3) dòng có Tier / Khu vực / AM lệch với chính cửa hàng đó. Tier / Khu vực / AM của mỗi cửa hàng lấy theo giá trị xuất hiện nhiều nhất trong file BNR nên số liệu không bị ảnh hưởng bởi dòng điền sai.</li>
+      <li>ZNS_CTA là kênh nhắn tin, không phải cửa hàng; cùng với kênh Online không tính vào các lát cắt AM / tier / khu vực. Bộ lọc Kỳ / Cửa hàng / Model dùng chung với các tab khác.</li>
       <li>Nguồn: <b><span id="xn-src"></span></b> — sheet BNR. Chỉ số tổng hợp, không chứa số điện thoại khách.</li>
     </ul>
   </details>

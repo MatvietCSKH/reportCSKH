@@ -33,6 +33,8 @@ Dashboard báo cáo CSKH: **Phân tích KH 12M** (KH mới / Quay lại ≤12T /
 - `scripts/xnbh.py`: tổng hợp theo tháng × cửa hàng → khoá `xnbh` của `dash.json` (tự chạy trong bước `compute`). Chỉ ghi số tổng hợp, không đưa Mã KH (SĐT) vào dashboard.
 - **Ngữ nghĩa cột XNBH đổi theo tháng** — script tự nhận diện và ghi vào `xnbh.mode`: `flag` (T8/2026: Yes/No = đã xác nhận bảo hành chưa) và `grant` (từ T9/2026: mọi dòng có SL KH đều Yes, dòng No là người trả lời NPS mà không nhận BNR). Vì vậy chỉ số chuyển đổi của tab dùng **NPS / KH nhận BNR**, so sánh được giữa mọi tháng.
 - Tier / Khu vực / AM lấy theo giá trị xuất hiện nhiều nhất của từng cửa hàng trong file BNR (chống dòng điền sai).
+- Tab có khung **Đọc nhanh** tự sinh từ số liệu (không viết tay): quy mô kỳ, so với tháng liền trước (hệ thống / AM / tier / nhóm địa lý, biên độ theo cửa hàng), trật tự tier, giả thuyết "khách quốc tế" (5 CH `X_INTL` trong `app.js`), AM cần lưu ý, cửa hàng dưới 25% hai tháng liên tiếp, XNBH lẻ và chất lượng dữ liệu. Nhóm địa lý là giả thuyết phân tích, chỉnh trong `X_INTL` / `X_NORTH`.
+- Kỳ chọn chưa có file BNR (vd T10 khi file mới tới T9) thì tab tự hiện tháng gần nhất có dữ liệu và ghi rõ. `xnbh.bad[m]` = số dòng có Tier / Khu vực / AM lệch với chính CH đó (file nguồn điền sai).
 
 ## Phản hồi KH (tab "Phản hồi KH")
 - Nguồn: OneDrive › Báo cáo › CS report › `Phản hồi của KH.xlsx` (sheet "Phản hồi"). Bước `scan` theo dõi file này (khoá `fb:`), bước `compute` chạy `scripts/feedback.py`.
