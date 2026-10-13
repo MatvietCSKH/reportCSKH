@@ -24,7 +24,7 @@ BC21 = os.path.join(BAOCAO, "Data BC21")
 STORE_DIR = os.path.join(OD, "Store - Data CSKH", "2024")
 CTCRM = os.path.join(BAOCAO, "CT CRM.2023.xlsx")
 SKIP_STORES = {"220", "226", "311", "403"}  # CH bỏ qua (file chỉ trên cloud)
-MONTH_FILE = re.compile(r"^(T\d{1,2}(\.\d{2,4})?( ?\d)?|\d{2} - \d{4})\.(xlsx|xls)$", re.I)   # T10.xlsx hoặc file tạm giữa tháng "01 - 1110.xls"
+MONTH_FILE = re.compile(r"^(T\d{1,2}(\.\d{2,4})?( ?\d)?|(\d{2} - )?\d{4})\.(xlsx|xls)$", re.I)   # T10.xlsx, hoặc file tạm "01 - 1110.xls" / theo ngày "1210.xls"
 
 def sources():
     out = {}
@@ -124,6 +124,27 @@ def extract_xls(path, out):
         for d in bills.values():
             w.writerow([d["PBH"],d["date"],d["kho"],d["store"],d["gt"],d["age"],d["makh"],d["ten"],round(d["tt"]),round(d["ck"]),round(d["tien"]),d["card"],d["mathe"],d["sn"],"|".join(sorted(d["km"])),"|".join(sorted(d["ontop"])),"|".join(sorted(d["nhom"])),d["ns"]])
 
+PARTS = os.path.join(WORK, "parts")
+def merge_month(m):
+    """Ghép các file BC21 cùng tháng (vd "01 - 1110.xls" + "1210.xls"). Có file tháng đầy đủ (T10...) thì chỉ dùng file đó.
+    Trùng số CT thì lấy theo file mới hơn."""
+    for kind, key, out in (("raw", "PBH", os.path.join(WORK, f"raw_{m}.csv")), ("ctkm", "bill", os.path.join(WORK, "ctkm", f"lines_{m}.csv"))):
+        parts = sorted(glob.glob(os.path.join(PARTS, kind, f"{m}__*.csv")), key=os.path.getmtime)
+        full = [f for f in parts if re.search(r"__Data_\d{4}_T\d", os.path.basename(f))]
+        if full: parts = full[-1:]
+        if not parts: continue
+        seen = set(); chunks = []; hdr = None
+        for f in reversed(parts):                      # file mới nhất trước
+            with open(f, encoding="utf-8", newline="") as fi:
+                rd = csv.reader(fi); h = next(rd, None)
+                if h is None: continue
+                hdr = hdr or h; ki = h.index(key); rows = [r for r in rd if r and r[ki] not in seen]
+            seen.update(r[ki] for r in rows); chunks.append(rows)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with open(out, "w", encoding="utf-8", newline="") as fo:
+            w = csv.writer(fo); w.writerow(hdr)
+            for rows in reversed(chunks): w.writerows(rows)
+
 def extract(changed=None):
     if changed is None: changed = json.load(open(os.path.join(WORK, "scan.json")))["changed"]
     src = sources(); done = []
@@ -141,10 +162,11 @@ def extract(changed=None):
             m = month_of_csv(tmp)
             if not m: os.remove(tmp); print("  skip (rỗng)", k); continue
             if m < "2025-10": os.remove(tmp); print("  skip (tháng cũ)", k, m); continue
-            os.replace(tmp, os.path.join(WORK, f"raw_{m}.csv")); print(f"  {k} -> raw_{m}.csv [{time.time()-t:.0f}s]")
-            os.makedirs(os.path.join(WORK, "ctkm"), exist_ok=True)   # CTKM cấp dòng hàng cho tab CTKM / AWO
-            subprocess.run([sys.executable, os.path.join(HERE, "ctkm_extract.py"), "--out", os.path.join(WORK, "ctkm", f"lines_{m}.csv"), p], check=True, capture_output=True)
-            print(f"  {k} -> ctkm/lines_{m}.csv [{time.time()-t:.0f}s]")
+            tag = re.sub(r"[^0-9A-Za-z]+", "_", os.path.relpath(p, BC21))
+            os.makedirs(os.path.join(PARTS, "raw"), exist_ok=True); os.makedirs(os.path.join(PARTS, "ctkm"), exist_ok=True)
+            os.replace(tmp, os.path.join(PARTS, "raw", f"{m}__{tag}.csv"))
+            subprocess.run([sys.executable, os.path.join(HERE, "ctkm_extract.py"), "--out", os.path.join(PARTS, "ctkm", f"{m}__{tag}.csv"), p], check=True, capture_output=True)
+            merge_month(m); print(f"  {k} -> raw_{m}.csv + ctkm/lines_{m}.csv [{time.time()-t:.0f}s]")
         elif k.startswith("sn:"):
             try:                                     # nhanh (~80s) bằng python-calamine
                 subprocess.run([sys.executable, os.path.join(HERE, "sn_fast.py"), p, os.path.join(WORK, "sn2023.csv")], check=True, capture_output=True)
