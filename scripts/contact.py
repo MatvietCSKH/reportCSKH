@@ -17,7 +17,7 @@ def meth(m):
 st["meth"]=(st.method+" "+st.note+" "+st.staff).map(meth)
 st.loc[~st.noted,"meth"]="Không liên hệ"
 d=pd.read_csv("sn2023.csv",dtype=str,keep_default_na=False); d.columns=[c.strip() for c in d.columns]
-d["tt"]=pd.to_numeric(d["Thanh toán"],errors="coerce").fillna(0); d["month"]=d.Month.str[:7]
+import sn_redeem; d=sn_redeem.attach_auto_tt(d,verbose=False); d["month"]=d.Month.str[:7]
 d["key"]=np_(d.SDT.where(d.SDT.str.strip()!="",d["Mã KH"]))
 d["store_sn"]=d["Cửa hàng"].str.extract(r"^(\d{3})")[0]
 d=d.groupby(["month","key"]).agg(tt=("tt","sum"),red=("tt",lambda s:(s>0).sum()),store_sn=("store_sn","first")).reset_index()

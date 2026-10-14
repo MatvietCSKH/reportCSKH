@@ -118,7 +118,7 @@ out["ttv_seg"]=agg(b[b.year>=2025],["year","card","seg"]).to_dict("records")
 lap("agg done")
 # ---------- birthday (SN2023 sheet, CT CRM.2023.xlsx) ----------
 d=pd.read_csv("sn2023.csv",dtype=str,keep_default_na=False); d.columns=[c.strip() for c in d.columns]
-d["tt"]=pd.to_numeric(d["Thanh toán"],errors="coerce").fillna(0)
+import sn_redeem; d=sn_redeem.attach_auto_tt(d)  # Thanh toán: lấy từ BC21 (mã MUD), thiếu thì số nhập tay
 d["month"]=d.Month.str[:7]; d=d[d.month.str.match(r"^20\d\d-\d\d$")]
 d["year"]=d.month.str[:4].astype(int); d["kho"]=d["Cửa hàng"].str.strip()
 d["model"]=d.kho.map(lambda k: mapstore(k)[1] if k else "6. Khác").replace({"#N/A":"6. Khác","":"6. Khác","-":"6. Khác","Counter w R":"2. Counter w R"})
