@@ -344,12 +344,14 @@ function renderContact(){
   mk('c-ct-cr',{type:'line',data:{labels:lbl,datasets:[lineDs('Có liên hệ',ms.map(m=>pct(byM[m].red_n,byM[m].noted)),S3),lineDs('Không liên hệ',ms.map(m=>pct(byM[m].red_u,byM[m].listed-byM[m].noted)),GREY)]},
     options:{plugins:{tooltip:ttP},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
   legend('lg-ct-cr',[['Có liên hệ',S3],['Không liên hệ',GREY]]);
-  const ys=yearsSel(2024);
-  const gm={}; for(const r of D.contact_method.filter(r=>ys.includes(r.year))){ const g=gm[r.meth]||(gm[r.meth]={n:0,red:0,rev:0}); g.n+=r.n; g.red+=r.red; g.rev+=r.rev; }
+  const inCt = r => r.month<='2026-09' && inPeriod(r.month) && okS(r.store);   // cùng bộ lọc kỳ / CH / model với các bảng trên
+  const gm={}; for(const r of D.contact_method.filter(inCt)){ const g=gm[r.meth]||(gm[r.meth]={n:0,red:0,rev:0}); g.n+=r.n; g.red+=r.red; g.rev+=r.rev; }
   const mName=k=>k==='Khác/không ghi'?'Có ghi nhận, không rõ hình thức':k;
   table('t-ct-method',['Hình thức','Số KH','Dùng voucher','CR','Doanh số (tr)'],Object.entries(gm).sort((a,b)=>b[1].n-a[1].n).map(([k,g])=>[mName(k),fmtN(g.n),fmtN(g.red),fmtP(g.red,g.n),fmtB(g.rev)]));
-  const gs={}; for(const r of D.contact_staff.filter(r=>ys.includes(r.year)&&okS(r.store))){ const key=r.store+'|'+r.staff; const g=gs[key]||(gs[key]={store:r.store,staff:r.staff,n:0,red:0,rev:0}); g.n+=r.n; g.red+=r.red; g.rev+=r.rev; }
+  if(!Object.keys(gm).length) el('t-ct-method').innerHTML='<div class="empty">Không có dữ liệu cho kỳ này</div>';
+  const gs={}; for(const r of D.contact_staff.filter(inCt)){ const key=r.store+'|'+r.staff; const g=gs[key]||(gs[key]={store:r.store,staff:r.staff,n:0,red:0,rev:0}); g.n+=r.n; g.red+=r.red; g.rev+=r.rev; }
   table('t-ct-staff',['Nhân viên','CH','KH đã liên hệ','Dùng voucher','CR','Doanh số (tr)'],Object.values(gs).sort((a,b)=>b.n-a.n).slice(0,15).map(g=>[g.staff,g.store,fmtN(g.n),fmtN(g.red),fmtP(g.red,g.n),fmtB(g.rev)]));
+  if(!Object.keys(gs).length) el('t-ct-staff').innerHTML='<div class="empty">Không có dữ liệu cho kỳ này</div>';
   const bs={}; for(const r of rows){ const g=bs[r.store]||(bs[r.store]={listed:0,noted:0,red_n:0,red_u:0,rev_n:0,rev_u:0,months:new Set(),active:new Set()}); for(const k of ['listed','noted','red_n','red_u','rev_n','rev_u']) g[k]+=r[k]; g.months.add(r.month); if(r.noted/r.listed>=.05) g.active.add(r.month); }
   const brow=Object.entries(bs).sort((a,b)=>pct(b[1].noted,b[1].listed)-pct(a[1].noted,a[1].listed));
   const pill=p=>p>=50?'<span class="pill ok">Thực hiện tốt</span>':p>=5?'<span class="pill mid">Làm một phần</span>':'<span class="pill no">Chưa thực hiện</span>';

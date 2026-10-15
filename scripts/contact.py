@@ -28,10 +28,10 @@ print("rows",len(m),"matched to SN list",m.matched.mean().round(3))
 print(m.groupby("noted").agg(n=("key","count"),red=("red","sum"),rev=("tt","sum")).assign(cr=lambda x:(100*x.red/x.n).round(2)))
 g=m.groupby(["store","month"]).agg(listed=("key","count"),noted=("noted","sum"),red_n=("red",lambda s:int(s[m.loc[s.index,"noted"]].sum())),red_u=("red",lambda s:int(s[~m.loc[s.index,"noted"]].sum())),rev_n=("tt",lambda s:float(s[m.loc[s.index,"noted"]].sum())),rev_u=("tt",lambda s:float(s[~m.loc[s.index,"noted"]].sum()))).reset_index()
 g["noted"]=g.noted.astype(int)
-gm=m.assign(year=m.month.str[:4].astype(int)).groupby(["year","meth"]).agg(n=("key","count"),red=("red","sum"),rev=("tt","sum")).reset_index()
-gs=m.assign(year=m.month.str[:4].astype(int)).groupby(["year","store","staff"]).agg(n=("key","count"),red=("red","sum"),rev=("tt","sum")).reset_index()
+gm=m.groupby(["month","store","meth"]).agg(n=("key","count"),red=("red","sum"),rev=("tt","sum")).reset_index()
+gs=m.groupby(["month","store","staff"]).agg(n=("key","count"),red=("red","sum"),rev=("tt","sum")).reset_index()
 gs=gs[gs.staff!=""].sort_values("n",ascending=False)
-out={"contact_month":g.round(0).to_dict("records"),"contact_method":gm.round(0).to_dict("records"),"contact_staff":gs.head(300).round(0).to_dict("records"),
+out={"contact_month":g.round(0).to_dict("records"),"contact_method":gm.round(0).to_dict("records"),"contact_staff":gs.round(0).to_dict("records"),
      "contact_meta":{"stores":sorted(st.store.unique().tolist()),"missing_stores":["220","226","311","403"],"months":sorted(st.month.unique().tolist())}}
 json.dump(out,open("contact.json","w",encoding="utf-8"),ensure_ascii=False)
 dash=json.load(open("dash.json",encoding="utf-8")); dash.update(out); json.dump(dash,open("dash.json","w",encoding="utf-8"),ensure_ascii=False)
