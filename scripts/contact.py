@@ -29,6 +29,18 @@ print(m.groupby("noted").agg(n=("key","count"),red=("red","sum"),rev=("tt","sum"
 g=m.groupby(["store","month"]).agg(listed=("key","count"),noted=("noted","sum"),red_n=("red",lambda s:int(s[m.loc[s.index,"noted"]].sum())),red_u=("red",lambda s:int(s[~m.loc[s.index,"noted"]].sum())),rev_n=("tt",lambda s:float(s[m.loc[s.index,"noted"]].sum())),rev_u=("tt",lambda s:float(s[~m.loc[s.index,"noted"]].sum()))).reset_index()
 g["noted"]=g.noted.astype(int)
 gm=m.groupby(["month","store","meth"]).agg(n=("key","count"),red=("red","sum"),rev=("tt","sum")).reset_index()
+# Gom tên NV trùng: chỉ gộp khi là họ tên đầy đủ (>= 2 chữ) và trùng khớp từng chữ, chỉ khác hoa/thường hoặc khoảng trắng, trong cùng CH.
+# Tên 1 chữ (vd "Mỹ", "TRÚC") giữ nguyên. Tên hiển thị: cách viết thường/hoa chuẩn dùng nhiều nhất, không có thì cách viết dùng nhiều nhất.
+import unicodedata
+def unify_staff(df):
+    nm=df.staff.map(lambda x: re.sub(r"\s+"," ",unicodedata.normalize("NFC",x)).strip())
+    k=nm.str.lower(); full=nm.str.count(" ")>=1
+    cnt=pd.DataFrame({"store":df.store,"k":k,"nm":nm})[full].groupby(["store","k","nm"]).size().reset_index(name="c")
+    cnt["mixed"]=cnt.nm.map(lambda x: x!=x.upper() and x!=x.lower())
+    best=cnt.sort_values(["mixed","c"],ascending=False).drop_duplicates(["store","k"]).set_index(["store","k"]).nm
+    disp=[best.get((st,kk),n) if f else n for st,kk,n,f in zip(df.store,k,nm,full)]
+    return df.assign(staff=disp)
+m=unify_staff(m)
 gs=m.groupby(["month","store","staff"]).agg(n=("key","count"),red=("red","sum"),rev=("tt","sum")).reset_index()
 gs=gs[gs.staff!=""].sort_values("n",ascending=False)
 out={"contact_month":g.round(0).to_dict("records"),"contact_method":gm.round(0).to_dict("records"),"contact_staff":gs.round(0).to_dict("records"),
