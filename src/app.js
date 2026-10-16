@@ -533,7 +533,7 @@ const NHOM_COL = () => ({LENS:cssv('--s1'),OPT:cssv('--s3'),SUN:cssv('--s4'),CON
 const COM_COL = () => ({'COMPLETE OPTICAL PAIR':cssv('--s1'),'LENS ONLY':cssv('--s3'),'FRAME ONLY':cssv('--s2'),'SUN ONLY':cssv('--s4'),'COMPLETE PAIR SUN':cssv('--s8'),'CONTACT LENSES ONLY':cssv('--t3'),'OTHERS':cssv('--t6')});
 const HL = HH.lines.map(r=>({m:HH.months[r[0]],kho:HH.kho[r[1]],ci:r[2],pi:r[3],n:HNHOM[r[4]],q:r[5],ns:r[6]*1e3,ck:r[7]*1e3,b:r[8]}));
 const HB = HH.bills.map(r=>({m:HH.months[r[0]],kho:HH.kho[r[1]],ci:r[2],pi:r[3],c:HCOM[r[4]],b:r[5],ns:r[6]*1e3,ck:r[7]*1e3,l:r[8],o:r[9],s:r[10]}));
-const HT = HH.loai_rows.map(r=>({m:HH.months[r[0]],kho:HH.kho[r[1]],ci:r[2],n:HNHOM[r[3]],loai:HH.loai[r[4]],q:r[5],ns:r[6]*1e3,b:r[7]}));   // không có chiều CTKM
+const HT = HH.loai_rows.map(r=>({m:HH.months[r[0]],kho:HH.kho[r[1]],ci:r[2],pi:r[3],n:HNHOM[r[4]],loai:HH.loai[r[5]],q:r[6],ns:r[7]*1e3,b:r[8]}));
 const hstate = {camp:'', card:'', dim:'kho'};
 try { Object.assign(hstate, JSON.parse(localStorage.getItem('cskh-hh')||'{}')); } catch(e){}
 const hOkCamp = r => hstate.camp==='' || r.pi===+hstate.camp;
@@ -625,9 +625,9 @@ function renderHH(){
   const dimLbl = k => hstate.dim==='kho' ? k+(KSM[k]?` <span class="tag">${MODEL_LBL(kModel(k))}</span>`:'') : k;
   table('t-hh-dim',[HDIM[hstate.dim],...H_HEAD], dl.map(([k,g])=>hRow(dimLbl(k),g,td,md)), hTot(od,td));
   // loại hàng bán chạy
-  const Tp=HT.filter(r=>okKho(r.kho)&&hOkCard(r)&&inPeriod(r.m)); const tl={};   // bảng loại hàng không lọc theo CTKM
+  const Tp=HT.filter(r=>hOk(r)&&inPeriod(r.m)); const tl={};
   for(const r of Tp){ const g=tl[r.n+'|'+r.loai]||(tl[r.n+'|'+r.loai]={n:r.n,loai:r.loai,q:0,ns:0,b:0}); g.q+=r.q; g.ns+=r.ns; g.b+=r.b; }
-  const tlN={}; HNHOM.forEach(n=>tlN[n]=Lk.filter(r=>r.n===n).reduce((a,r)=>a+r.ns,0));
+  const tlN={}; HNHOM.forEach(n=>tlN[n]=byN[n].ns);
   const rows=[]; for(const n of HNHOM){ Object.values(tl).filter(g=>g.n===n).sort((a,b)=>b.ns-a.ns).slice(0,10).forEach((g,i)=>rows.push([i?'':sw(NC[n])+NHOM_LBL[n],`<span class="nm" style="min-width:200px">${g.loai}</span>`,fmtN(g.q),NHOM_UNIT[n],fmtB(g.ns),fmtP(g.ns,tlN[n]),fmtN(g.b),fmtM(g.q?g.ns/g.q:0)])); }
   table('t-hh-loai',['Nhóm','Loại hàng','SL bán','Đơn vị','Doanh số (tr)','% DS nhóm','Bill','Giá TB / đơn vị (tr)'],rows);
   el('hh-note').textContent = `Dữ liệu dòng hàng ${HH.months.length?mLbl(HH.months[0])+' → '+mLbl(HH.months[HH.months.length-1]):'–'} · ${fmtN(HH.dropped_zero_bills||0)} bill chỉ có dòng OTHERS 0đ đã bỏ · cột Commodity (ERP) có ở ${fP1(100*(HH.com_erp_share||0))} bill, khớp với suy luận từ nhóm hàng ${HH.com_agree!=null?fP1(100*HH.com_agree):'–'}.`;

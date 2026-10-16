@@ -99,8 +99,8 @@ LOAI=[]
 for n in NHOM:
     for r in tl[tl.nhom==n].head(12).itertuples(): LOAI.append(r.loai)
 lidx={l:i for i,l in enumerate(LOAI)}; d["li"]=d.loai.map(lambda l: lidx.get(l,-1))
-g=d[d.li>=0].groupby(["mi","ki","ci","ni","li"]); T=pd.DataFrame({"q":g.qty.sum(),"ns":g.ns.sum(),"b":g.bill.nunique()}).reset_index()   # không có chiều CTKM cho gọn file
-loai_rows=[[int(r.mi),int(r.ki),int(r.ci),int(r.ni),int(r.li),round(float(r.q),1),k(r.ns),int(r.b)] for r in T.itertuples()]
+g=d[d.li>=0].groupby(["mi","ki","ci","bpi","ni","li"]); T=pd.DataFrame({"q":g.qty.sum(),"ns":g.ns.sum(),"b":g.bill.nunique()}).reset_index()
+loai_rows=[[int(r.mi),int(r.ki),int(r.ci),int(r.bpi),int(r.ni),int(r.li),round(float(r.q),1),k(r.ns),int(r.b)] for r in T.itertuples()]
 out={"months":MONTHS,"kho":KHO,"cards":CARDS,"camps":CAMPS,"nhom":NHOM,"com":COM,"loai":LOAI,"lines":lines,"bills":bills,"loai_rows":loai_rows,
      "dropped_zero_bills":int(b0-d.bill.nunique()),"com_erp_share":round(float(has.mean()),4),"com_agree":round(float(agree),4) if agree==agree else None,
      "rule":"Nhóm hàng theo cột Nhóm hàng BC21; bỏ dòng OTHERS 0đ; SL tròng = số miếng / 2 (cặp); loại giỏ hàng theo cột Commodity (ERP), thiếu thì suy từ nhóm hàng; CTKM = CTKM chính của bill (chiến dịch có doanh số lớn nhất trong bill, không có CTKM = Nguyên giá) áp cho cả nhóm hàng lẫn giỏ hàng; NetSale trước VAT."}
