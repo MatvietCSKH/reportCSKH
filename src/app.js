@@ -523,6 +523,127 @@ function initKM(){
 }
 initKM();
 
+/* ================= HÀNG HÓA — nhóm hàng & giỏ hàng ================= */
+const HH = D.hh || {months:[],kho:[],cards:CARDS,camps:[],nhom:['LENS','OPT','SUN','CONTACLENS','OTHERS'],com:['COMPLETE OPTICAL PAIR','LENS ONLY','FRAME ONLY','SUN ONLY','COMPLETE PAIR SUN','CONTACT LENSES ONLY','OTHERS'],loai:[],lines:[],bills:[],loai_rows:[]};
+const HNHOM = HH.nhom, HCOM = HH.com;
+const NHOM_LBL = {LENS:'Tròng kính',OPT:'Gọng kính',SUN:'Kính mát',CONTACLENS:'Kính áp tròng',OTHERS:'Khác (phụ kiện, dịch vụ)'};
+const NHOM_UNIT = {LENS:'cặp',OPT:'cái',SUN:'cái',CONTACLENS:'sp',OTHERS:'sp'};
+const COM_LBL = {'COMPLETE OPTICAL PAIR':'Gọng + tròng (complete pair)','LENS ONLY':'Chỉ mua tròng (only lens)','FRAME ONLY':'Chỉ mua gọng (only frame)','SUN ONLY':'Chỉ kính mát','COMPLETE PAIR SUN':'Kính mát + tròng','CONTACT LENSES ONLY':'Chỉ kính áp tròng','OTHERS':'Khác (phụ kiện / dịch vụ)'};
+const NHOM_COL = () => ({LENS:cssv('--s1'),OPT:cssv('--s3'),SUN:cssv('--s4'),CONTACLENS:cssv('--s2'),OTHERS:cssv('--t6')});
+const COM_COL = () => ({'COMPLETE OPTICAL PAIR':cssv('--s1'),'LENS ONLY':cssv('--s3'),'FRAME ONLY':cssv('--s2'),'SUN ONLY':cssv('--s4'),'COMPLETE PAIR SUN':cssv('--s8'),'CONTACT LENSES ONLY':cssv('--t3'),'OTHERS':cssv('--t6')});
+const HL = HH.lines.map(r=>({m:HH.months[r[0]],kho:HH.kho[r[1]],ci:r[2],pi:r[3],n:HNHOM[r[4]],q:r[5],ns:r[6]*1e3,ck:r[7]*1e3,b:r[8]}));
+const HB = HH.bills.map(r=>({m:HH.months[r[0]],kho:HH.kho[r[1]],ci:r[2],pi:r[3],c:HCOM[r[4]],b:r[5],ns:r[6]*1e3,ck:r[7]*1e3,l:r[8],o:r[9],s:r[10]}));
+const HT = HH.loai_rows.map(r=>({m:HH.months[r[0]],kho:HH.kho[r[1]],ci:r[2],n:HNHOM[r[3]],loai:HH.loai[r[4]],q:r[5],ns:r[6]*1e3,b:r[7]}));   // không có chiều CTKM
+const hstate = {camp:'', card:'', dim:'kho'};
+try { Object.assign(hstate, JSON.parse(localStorage.getItem('cskh-hh')||'{}')); } catch(e){}
+const hOkCamp = r => hstate.camp==='' || r.pi===+hstate.camp;
+const hOkCard = r => hstate.card==='' || r.ci===+hstate.card;
+const hOk = r => okKho(r.kho) && hOkCamp(r) && hOkCard(r);
+const HDIM = {kho:'Cửa hàng',model:'Model',tier:'Tier',am:'AM'};
+const hDim = kho => { const s=KSM[kho]||{}; return hstate.dim==='kho' ? kho : hstate.dim==='model' ? MODEL_LBL(kModel(kho)) : hstate.dim==='tier' ? (s.tier||'–') : (s.am||'–'); };
+const sw = c => `<span style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px;background:${c}"></span>`;
+function hBreak(Lrows, Brows, keyL, keyB){
+  const o={}; const get=k=>o[k]||(o[k]={ns:0,ck:0,b:0,q:{LENS:0,OPT:0,SUN:0,CONTACLENS:0,OTHERS:0},nsn:{LENS:0,OPT:0,SUN:0,CONTACLENS:0,OTHERS:0},com:{}});
+  for(const r of Lrows){ const g=get(keyL(r)); g.q[r.n]+=r.q; g.nsn[r.n]+=r.ns; }
+  for(const r of Brows){ const g=get(keyB(r)); g.ns+=r.ns; g.ck+=r.ck; g.b+=r.b; g.com[r.c]=(g.com[r.c]||0)+r.b; }
+  return o;
+}
+const H_HEAD=['Doanh số (tr)','% DS','Bill','Bill mua kính','ATV (tr)','Cặp tròng','Gọng','Kính mát','DS tròng (tr)','DS gọng (tr)','DS kính mát (tr)','% gọng + tròng','% chỉ tròng','% chỉ gọng'];
+const hRow=(lbl,g,tot,max)=>{ const eye=g.b-(g.com['OTHERS']||0); return [lbl,bar(fmtB(g.ns),max),fmtP(g.ns,tot),fmtN(g.b),fmtN(eye),fmtM(g.b?g.ns/g.b:0),fmtN(g.q.LENS),fmtN(g.q.OPT),fmtN(g.q.SUN),fmtB(g.nsn.LENS),fmtB(g.nsn.OPT),fmtB(g.nsn.SUN),fmtP(g.com['COMPLETE OPTICAL PAIR']||0,eye),fmtP(g.com['LENS ONLY']||0,eye),fmtP(g.com['FRAME ONLY']||0,eye)]; };
+const hTot=(o,tot)=>{ const g={ns:0,ck:0,b:0,q:{LENS:0,OPT:0,SUN:0},nsn:{LENS:0,OPT:0,SUN:0},com:{}}; for(const k in o){ const x=o[k]; g.ns+=x.ns; g.b+=x.b; for(const n of ['LENS','OPT','SUN']){ g.q[n]+=x.q[n]; g.nsn[n]+=x.nsn[n]; } for(const c in x.com) g.com[c]=(g.com[c]||0)+x.com[c]; } return hRow('Tổng',g,tot,0).map((v,i)=>i===1?fmtB(g.ns):v); };
+LABELS['c-hh-month']=()=>({stackTotals:stackTot(fmtN), datalabels:DL.inside(fmtN,.12)});
+LABELS['c-hh-qty']=()=>({datalabels:DL.bar(cmp,{rotation:-90,align:'end',anchor:'end',offset:2,font:{size:9.5,weight:'600'}})});
+LABELS['c-hh-com']=()=>({datalabels:DL.inside(fP,.08)});
+function renderHH(){
+  const pm=periodMonths(), cms=chartMonths().filter(m=>HH.months.includes(m));
+  const NC=NHOM_COL(), CC=COM_COL();
+  const L=HL.filter(hOk), B=HB.filter(hOk);
+  const Lp=L.filter(r=>inPeriod(r.m)), Bp=B.filter(r=>inPeriod(r.m));
+  const noData=!pm.some(m=>HH.months.includes(m));
+  const byN={}; HNHOM.forEach(n=>byN[n]={q:0,ns:0,ck:0,b:0});
+  for(const r of Lp){ const g=byN[r.n]; g.q+=r.q; g.ns+=r.ns; g.ck+=r.ck; g.b+=r.b; }
+  const T=Bp.reduce((a,r)=>(a.b+=r.b,a.ns+=r.ns,a.ck+=r.ck,a.l+=r.l,a.o+=r.o,a.s+=r.s,a),{b:0,ns:0,ck:0,l:0,o:0,s:0});
+  const byC={}; HCOM.forEach(c=>byC[c]={b:0,ns:0,ck:0,l:0,o:0,s:0});
+  for(const r of Bp){ const g=byC[r.c]; g.b+=r.b; g.ns+=r.ns; g.ck+=r.ck; g.l+=r.l; g.o+=r.o; g.s+=r.s; }
+  const filt = hstate.camp!==''||hstate.card!=='';
+  el('hh-scope').textContent = noData ? 'Kỳ đang chọn chưa có dữ liệu dòng hàng (có từ T10/2025).'
+    : (filt ? 'Đang lọc: '+[hstate.camp!==''?'CTKM “'+HH.camps[+hstate.camp]+'”':'', hstate.card!==''?'hạng thẻ '+CARD_LBL(HH.cards[+hstate.card]):''].filter(Boolean).join(' · ') : '');
+  const cp=byC['COMPLETE OPTICAL PAIR']||{b:0,ns:0}, lo=byC['LENS ONLY']||{b:0,ns:0,l:0}, fo=byC['FRAME ONLY']||{b:0,ns:0,o:0};
+  const eyeB=T.b-((byC['OTHERS']||{}).b||0);   // bill mua kính = trừ bill chỉ có phụ kiện / dịch vụ
+  el('hh-kpis').innerHTML=[
+    kpi('Doanh số (NetSale)', fmtB(T.ns)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', fmtN(T.b)+' bill · ATV '+fmtM(T.b?T.ns/T.b:0)+' tr', null, true),
+    kpi('Cặp tròng bán ra', fmtN(byN.LENS.q), fmtB(byN.LENS.ns)+' tr · '+fmtP(byN.LENS.ns,T.ns)+' DS · TB '+fmtM(byN.LENS.q?byN.LENS.ns/byN.LENS.q:0)+' tr/cặp', NC.LENS),
+    kpi('Gọng bán ra', fmtN(byN.OPT.q), fmtB(byN.OPT.ns)+' tr · '+fmtP(byN.OPT.ns,T.ns)+' DS · TB '+fmtM(byN.OPT.q?byN.OPT.ns/byN.OPT.q:0)+' tr/cái', NC.OPT),
+    kpi('Kính mát bán ra', fmtN(byN.SUN.q), fmtB(byN.SUN.ns)+' tr · '+fmtP(byN.SUN.ns,T.ns)+' DS · TB '+fmtM(byN.SUN.q?byN.SUN.ns/byN.SUN.q:0)+' tr/cái', NC.SUN),
+    kpi('Gọng + tròng (complete pair)', fmtP(cp.b,eyeB), fmtN(cp.b)+' / '+fmtN(eyeB)+' bill mua kính · '+fmtB(cp.ns)+' tr', CC['COMPLETE OPTICAL PAIR']),
+    kpi('Chỉ mua tròng (only lens)', fmtP(lo.b,eyeB), fmtN(lo.b)+' bill · '+fmtN(lo.l)+' cặp · ATV '+fmtM(lo.b?lo.ns/lo.b:0)+' tr', CC['LENS ONLY']),
+    kpi('Chỉ mua gọng (only frame)', fmtP(fo.b,eyeB), fmtN(fo.b)+' bill · '+fmtN(fo.o)+' gọng · ATV '+fmtM(fo.b?fo.ns/fo.b:0)+' tr', CC['FRAME ONLY']),
+    kpi('Cặp tròng / gọng', byN.OPT.q ? (byN.LENS.q/byN.OPT.q).toLocaleString('vi-VN',{maximumFractionDigits:2}) : '–', 'số cặp tròng bán ra trên mỗi gọng'),
+  ].join('');
+  // theo tháng
+  const lm={}; for(const r of L){ if(!cms.includes(r.m)) continue; const g=lm[r.m+'|'+r.n]||(lm[r.m+'|'+r.n]={q:0,ns:0}); g.q+=r.q; g.ns+=r.ns; }
+  const lab=cms.map(mLbl);
+  mk('c-hh-month',{type:'bar',data:{labels:lab,datasets:HNHOM.map(n=>barDs(NHOM_LBL[n],cms.map(m=>((lm[m+'|'+n]||{}).ns||0)/1e6),NC[n],{stack:'a'}))},
+    options:{plugins:{tooltip:ttB},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmtN(v)+' tr'}}}}});
+  legend('lg-hh-month',HNHOM.map(n=>[NHOM_LBL[n],NC[n]]));
+  const nl=HNHOM.filter(n=>byN[n].ns>0);
+  mk('c-hh-pie',{type:'doughnut',data:{labels:nl.map(n=>NHOM_LBL[n]),datasets:[{data:nl.map(n=>byN[n].ns),backgroundColor:nl.map(n=>NC[n]),borderColor:cssv('--surface'),borderWidth:2,hoverOffset:4}]},
+    options:{cutout:'58%',plugins:{datalabels:DL.pie(T.ns||1),tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtB(c.parsed)} tr (${fmtP(c.parsed,T.ns)})`}}}}});
+  legend('lg-hh-pie',nl.map(n=>[NHOM_LBL[n]+' '+fmtP(byN[n].ns,T.ns),NC[n]]));
+  const Q3=['LENS','OPT','SUN'];
+  mk('c-hh-qty',{type:'bar',data:{labels:lab,datasets:Q3.map(n=>barDs(n==='LENS'?'Cặp tròng':NHOM_LBL[n],cms.map(m=>Math.round((lm[m+'|'+n]||{}).q||0)),NC[n],{maxBarThickness:22}))},
+    options:{plugins:{tooltip:ttN},scales:{x:{},y:{beginAtZero:true,grace:'12%',ticks:{callback:v=>fmtN(v)}}}}});
+  legend('lg-hh-qty',Q3.map(n=>[n==='LENS'?'Cặp tròng':NHOM_LBL[n],NC[n]]));
+  const bm={}; for(const r of B){ if(!cms.includes(r.m)) continue; const g=bm[r.m]||(bm[r.m]={t:0}); g[r.c]=(g[r.c]||0)+r.b; g.t+=r.b; }
+  const cl=HCOM.filter(c=>B.some(r=>r.c===c&&cms.includes(r.m)));
+  mk('c-hh-com',{type:'bar',data:{labels:lab,datasets:cl.map(c=>barDs(COM_LBL[c],cms.map(m=>{const g=bm[m]||{t:0};return pct(g[c]||0,g.t);}),CC[c],{stack:'a'}))},
+    options:{plugins:{tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${fP1(c.parsed.y)} (${fmtN((bm[cms[c.dataIndex]]||{})[cl[c.datasetIndex]]||0)} bill)`}}},scales:{x:{stacked:true},y:{stacked:true,max:100,ticks:{callback:v=>v+'%'}}}}});
+  legend('lg-hh-com',cl.map(c=>[COM_LBL[c],CC[c]]));
+  // bảng nhóm hàng
+  const nmax=Math.max(0,...HNHOM.map(n=>byN[n].ns));
+  table('t-hh-nhom',['Nhóm hàng','SL bán','Đơn vị','Doanh số (tr)','% DS','Chiết khấu (tr)','%CK','Bill có nhóm','Giá TB / đơn vị (tr)'],
+    HNHOM.filter(n=>byN[n].ns||byN[n].q).map(n=>[sw(NC[n])+NHOM_LBL[n],fmtN(byN[n].q),NHOM_UNIT[n],bar(fmtB(byN[n].ns),nmax),fmtP(byN[n].ns,T.ns),fmtB(byN[n].ck),fCK(byN[n].ck,byN[n].ns),fmtN(byN[n].b),fmtM(byN[n].q?byN[n].ns/byN[n].q:0)]),
+    ['Tổng','','',fmtB(T.ns),'100%',fmtB(T.ck),fCK(T.ck,T.ns),fmtN(T.b),'']);
+  // bảng giỏ hàng
+  const cmax=Math.max(0,...HCOM.map(c=>byC[c].b));
+  table('t-hh-com',['Loại giỏ hàng','Bill','% bill','% bill mua kính','Doanh số (tr)','% DS','ATV (tr)','%CK','Cặp tròng','Gọng','Kính mát'],
+    HCOM.filter(c=>byC[c].b).map(c=>{const g=byC[c];return [sw(CC[c])+COM_LBL[c],bar(fmtN(g.b),cmax),fmtP(g.b,T.b),c==='OTHERS'?'–':fmtP(g.b,eyeB),fmtB(g.ns),fmtP(g.ns,T.ns),fmtM(g.b?g.ns/g.b:0),fCK(g.ck,g.ns),fmtN(g.l),fmtN(g.o),fmtN(g.s)];}),
+    ['Tổng',fmtN(T.b),'100%',fmtN(eyeB)+' bill kính',fmtB(T.ns),'100%',fmtM(T.b?T.ns/T.b:0),fCK(T.ck,T.ns),fmtN(T.l),fmtN(T.o),fmtN(T.s)]);
+  // theo hạng thẻ (không áp bộ lọc hạng thẻ)
+  const Lc=HL.filter(r=>okKho(r.kho)&&inPeriod(r.m)&&hOkCamp(r)), Bc=HB.filter(r=>okKho(r.kho)&&inPeriod(r.m)&&hOkCamp(r));
+  const oc=hBreak(Lc,Bc,r=>r.ci,r=>r.ci); const tc=Object.values(oc).reduce((a,g)=>a+g.ns,0), mc=Math.max(0,...Object.values(oc).map(g=>g.ns));
+  const CCo=CARD_COL();
+  table('t-hh-card',['Hạng thẻ',...H_HEAD], HH.cards.map((c,i)=>oc[i]?hRow(sw(CCo[c]||cssv('--t6'))+CARD_LBL(c),oc[i],tc,mc):null).filter(Boolean), hTot(oc,tc));
+  // theo CTKM (không áp bộ lọc CTKM)
+  const Lk=HL.filter(r=>okKho(r.kho)&&inPeriod(r.m)&&hOkCard(r)), Bk=HB.filter(r=>okKho(r.kho)&&inPeriod(r.m)&&hOkCard(r));
+  const ok=hBreak(Lk,Bk,r=>r.pi,r=>r.pi); const tk=Object.values(ok).reduce((a,g)=>a+g.ns,0);
+  const kl=Object.entries(ok).sort((a,b)=>b[1].ns-a[1].ns).slice(0,25); const mk2=kl.length?kl[0][1].ns:0;
+  table('t-hh-camp',['CTKM / chiến dịch',...H_HEAD], kl.map(([p,g])=>hRow(`<span class="nm" style="min-width:200px">${HH.camps[+p]}</span>`,g,tk,mk2)), hTot(ok,tk));
+  // theo cửa hàng / model / tier / AM
+  const od=hBreak(Lp,Bp,r=>hDim(r.kho),r=>hDim(r.kho)); const td=Object.values(od).reduce((a,g)=>a+g.ns,0);
+  const dl=Object.entries(od).sort((a,b)=>b[1].ns-a[1].ns); const md=dl.length?dl[0][1].ns:0;
+  const dimLbl = k => hstate.dim==='kho' ? k+(KSM[k]?` <span class="tag">${MODEL_LBL(kModel(k))}</span>`:'') : k;
+  table('t-hh-dim',[HDIM[hstate.dim],...H_HEAD], dl.map(([k,g])=>hRow(dimLbl(k),g,td,md)), hTot(od,td));
+  // loại hàng bán chạy
+  const Tp=HT.filter(r=>okKho(r.kho)&&hOkCard(r)&&inPeriod(r.m)); const tl={};   // bảng loại hàng không lọc theo CTKM
+  for(const r of Tp){ const g=tl[r.n+'|'+r.loai]||(tl[r.n+'|'+r.loai]={n:r.n,loai:r.loai,q:0,ns:0,b:0}); g.q+=r.q; g.ns+=r.ns; g.b+=r.b; }
+  const tlN={}; HNHOM.forEach(n=>tlN[n]=Lk.filter(r=>r.n===n).reduce((a,r)=>a+r.ns,0));
+  const rows=[]; for(const n of HNHOM){ Object.values(tl).filter(g=>g.n===n).sort((a,b)=>b.ns-a.ns).slice(0,10).forEach((g,i)=>rows.push([i?'':sw(NC[n])+NHOM_LBL[n],`<span class="nm" style="min-width:200px">${g.loai}</span>`,fmtN(g.q),NHOM_UNIT[n],fmtB(g.ns),fmtP(g.ns,tlN[n]),fmtN(g.b),fmtM(g.q?g.ns/g.q:0)])); }
+  table('t-hh-loai',['Nhóm','Loại hàng','SL bán','Đơn vị','Doanh số (tr)','% DS nhóm','Bill','Giá TB / đơn vị (tr)'],rows);
+  el('hh-note').textContent = `Dữ liệu dòng hàng ${HH.months.length?mLbl(HH.months[0])+' → '+mLbl(HH.months[HH.months.length-1]):'–'} · ${fmtN(HH.dropped_zero_bills||0)} bill chỉ có dòng OTHERS 0đ đã bỏ · cột Commodity (ERP) có ở ${fP1(100*(HH.com_erp_share||0))} bill, khớp với suy luận từ nhóm hàng ${HH.com_agree!=null?fP1(100*HH.com_agree):'–'}.`;
+}
+function initHH(){
+  el('fCampH').innerHTML='<option value="">Tất cả CTKM</option>'+HH.camps.map((c,i)=>`<option value="${i}">${c}</option>`).join('');
+  el('fCardH').innerHTML='<option value="">Tất cả hạng thẻ</option>'+HH.cards.map((c,i)=>`<option value="${i}">${CARD_LBL(c)}</option>`).join('');
+  if (hstate.camp!=='' && !HH.camps[+hstate.camp]) hstate.camp=''; if (hstate.card!=='' && !HH.cards[+hstate.card]) hstate.card=''; if(!HDIM[hstate.dim]) hstate.dim='kho';
+  el('fCampH').value=hstate.camp; el('fCardH').value=hstate.card;
+  const save=()=>{ try{localStorage.setItem('cskh-hh',JSON.stringify(hstate));}catch(e){} };
+  for (const [id,key] of [['fCampH','camp'],['fCardH','card']]) el(id).addEventListener('change',()=>{ hstate[key]=el(id).value; save(); render(); });
+  el('hh-dim').innerHTML=Object.entries(HDIM).map(([k,l])=>`<button class="dchip" data-d="${k}" aria-pressed="${hstate.dim===k}">${l}</button>`).join('');
+  el('hh-dim').querySelectorAll('.dchip').forEach(b=>b.addEventListener('click',()=>{ hstate.dim=b.dataset.d; el('hh-dim').querySelectorAll('.dchip').forEach(x=>x.setAttribute('aria-pressed',x.dataset.d===hstate.dim)); save(); render(); }));
+}
+initHH();
+
 /* ================= XNBH — BNR & xác nhận bảo hành ================= */
 const X = D.xnbh || {rows:[],months:[],stores:{},mode:{},mism:{},bad:{},src:''};
 const XSM = X.stores || {};
@@ -826,7 +947,7 @@ initFB();
 function render(){
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
-  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,xnbh:renderXNBH,fb:renderFB})[state.view]();
+  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,xnbh:renderXNBH,fb:renderFB})[state.view]();
   el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
 }

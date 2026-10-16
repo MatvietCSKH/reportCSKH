@@ -1,6 +1,6 @@
 # Báo cáo CSKH Mắt Việt
 
-Dashboard báo cáo CSKH: **Phân tích KH 12M** (KH mới / Quay lại ≤12T / KH cũ >12T / Buyer), **Thẻ thành viên**, **Sinh nhật KH** và **Cửa hàng liên hệ KH sinh nhật**. Giao diện theo Mắt Việt Design System. Bộ lọc: Kỳ (Tháng / Quý / Năm / MTD / YTD), Cửa hàng, Model.
+Dashboard báo cáo CSKH: **Phân tích KH 12M** (KH mới / Quay lại ≤12T / KH cũ >12T / Buyer), **Thẻ thành viên**, **Sinh nhật KH**, **Cửa hàng liên hệ KH sinh nhật**, **CTKM / AWO**, **Hàng hóa**, **XNBH** và **Phản hồi KH**. Giao diện theo Mắt Việt Design System. Bộ lọc: Kỳ (Tháng / Quý / Năm / MTD / YTD), Cửa hàng, Model.
 
 | Thư mục | Nội dung |
 |---|---|
@@ -40,3 +40,9 @@ Dashboard báo cáo CSKH: **Phân tích KH 12M** (KH mới / Quay lại ≤12T /
 - Nguồn: OneDrive › Báo cáo › CS report › `Phản hồi của KH.xlsx` (sheet "Phản hồi"). Bước `scan` theo dõi file này (khoá `fb:`), bước `compute` chạy `scripts/feedback.py`.
 - `feedback.py` gắn "vấn đề cụ thể" theo từ khoá (danh sách `TAGS`) và mức độ (Nghiêm trọng / Không hài lòng / Góp ý); che SĐT và tên KH trong nội dung, không đưa Mã KH / Tên KH lên trang.
 - Khung "Nhận định & đề xuất" trong `src/template.html` là nhận xét viết tay theo dữ liệu đến 08/10/2026 — cập nhật lại khi cần.
+
+## Hàng hóa (tab "Hàng hóa")
+- Nguồn: cùng file dòng hàng `.work/ctkm/lines_<YYYY-MM>.csv` (từ T10/2025). `ctkm_extract.py` trích thêm cột `cat` (Nhóm category), `loai` (Loại hàng), `dvt` (ĐVT), `com` (Commodity — ERP phân loại bill: COMPLETE OPTICAL PAIR / LENS ONLY / FRAME ONLY / SUN ONLY / COMPLETE PAIR SUN / CONTACT LENSES ONLY / OTHERS).
+- `scripts/hanghoa.py` (được `ctkm.py` gọi kèm ở cuối — đặt biến môi trường `SKIP_HH=1` nếu muốn bỏ; dùng chung quy tắc gán CTKM trong `scripts/ctkm_rules.py`) ghi khoá `hh` của `dash.json`: tháng × cửa hàng × hạng thẻ × CTKM × nhóm hàng (SL, NetSale, CK, bill) và tháng × cửa hàng × hạng thẻ × CTKM(bill) × loại giỏ hàng (bill, NetSale, CK, cặp tròng / gọng / kính mát), kèm top 12 "Loại hàng" mỗi nhóm.
+- Quy ước: **bỏ dòng OTHERS 0đ** (và bill chỉ có các dòng đó); **SL tròng = số miếng ÷ 2** (cặp); CTKM của bill = chiến dịch có doanh số lớn nhất trong bill; chiến dịch ngoài top 45 gom vào "CTKM khác"; NetSale trước VAT như tab CTKM.
+- Bộ lọc riêng của tab: CTKM (chiến dịch) và Hạng thẻ; bảng cuối đổi được chiều Cửa hàng / Model / Tier / AM.

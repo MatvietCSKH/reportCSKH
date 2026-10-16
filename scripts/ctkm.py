@@ -4,56 +4,7 @@ Chỉ tính cơ chế khi cột MÃ có giá trị (ERP đôi khi điền tên C
 import pandas as pd, glob, os, re, json, unicodedata, time
 ROOT=os.path.dirname(os.path.dirname(os.path.abspath(__file__))); WORK=os.path.join(ROOT,".work")
 t0=time.time()
-GROUP={"BD":"CS.SN","LKMall":"MKT.KMMall","ECOM":"MKT.ECOM","EMPLOYEE":"HR.NV","(MKT.AWO)":"MKT.AWO","CSKH":"CS.MB","MCD":"MCD.DMGG","PO":"MKT.KM"}
-AWO=[("Checkin MV (Follow MV)",r"follow mv"),("Xác nhận bảo hành nhận (CSKH sau mua)",r"cskh sau mua"),("Đăng ký đo khám mắt",r"đo khám mắt"),("HSSV",r"hssv"),
-     ("Thu kính cũ",r"kính cũ"),("CP2",r"cp thứ 2|complete pair thứ 2|\bcp2\b"),("Bảo hành sản phẩm",r"bảo hành"),
-     ("Welcome KH mới",r"welcome"),("Đăng ký ZMA",r"\bzma\b")]
-nfc=lambda s: unicodedata.normalize("NFC",re.sub(r"\s+"," ",str(s or "")).strip())
-def card_name(c):
-    c=re.sub(r"^\d\.\s*","",c); m=re.match(r"([A-Za-z]+)(\d+)?",c)
-    return "Thẻ thành viên "+(m.group(1).capitalize()+(" "+m.group(2)+"%" if m.group(2) else "") if m else c)
-def assign(r):
-    for code,name,grp in (("mud","mud_n","mud_ct"),("ott","ott_n","ott_ct"),("ot","ot_n","ot_ct"),("combo","combo_n","combo_ct")):
-        if r[code] and r[name]: return GROUP.get(r[grp],r[grp] or "Khác"), nfc(r[name])
-    if r["ck"]!=0:
-        if r["csgg"]:
-            n=nfc(r["csgg_n"] or r["csgg"])
-            return ("CS.MB" if n.lower().startswith("thẻ thành viên") else "MCD.DMGG"), n
-        if r["card"]: return "CS.MB", card_name(r["card"])
-        return "Khác", "CK khác (không mã CTKM)"
-    return "Full Price", "Nguyên giá (không CTKM)"
-def regroup(grp,name):
-    if re.search(r"kính cũ",name,re.I) and grp=="MKT.KM": return "MKT.TKC"
-    if grp=="BOD": return "BOD.H" if re.search(r"\bC\.? ?Hà\b",name) else "BOD.T"
-    return grp
-GENERIC_HEAD=r"(giảm|voucher|vc|tặng|awo|approval|aproval|ecom|bảo hành|cashvoucher|b2b|saleevent)\b"
-def ct_base(name):
-    """Tên CT gốc — gom các mức giảm của cùng 1 CTKM (VD 'Follow MV - Giảm 100K…' và '… 300K…' -> 'Follow MV')."""
-    n=re.sub(r"^P\d+\s+","",name.strip())
-    m=re.match(r"(HSSV\d*)\b",n,re.I)
-    if m: return m.group(1).upper()
-    parts=re.split(r"\s+[-–]\s+|\s*:\s+",n,maxsplit=1)
-    head=parts[0].strip()
-    if len(parts)>1 and len(head)>=3 and not re.match(GENERIC_HEAD,head,re.I): return head
-    return n
-def campaign(name,grp):
-    if grp=="Full Price": return "Nguyên giá"
-    if grp=="CS.MB": return "Thẻ thành viên"
-    if grp=="CS.SN" or re.search(r"snkh|sinh nhật kh",name,re.I): return "Sinh nhật KH"
-    for fam,pat in AWO:
-        if re.search(pat,name,re.I): return "AWO · "+fam
-    if grp=="MCD.DMGG": return "Chính sách giá (MCD)"
-    if grp=="HR.NV": return "Mua hàng nội bộ"
-    if grp in("BOD.H","BOD.T","AM"): return "Duyệt giá ("+grp+")"
-    parts=re.split(r"\s+[-–:]\s+",name)
-    c=parts[0] if parts and not re.match(r"(giảm|voucher|vc|tặng)\b",parts[0],re.I) else name
-    c=re.sub(r"^P\d+\s+","",c)               # "P4 Customer Week" -> "Customer Week"
-    return c[:60]
-def awo(name,grp):
-    if grp=="CS.BH": return "Bảo hành sản phẩm"
-    for fam,pat in AWO:
-        if re.search(pat,name,re.I): return fam
-    return ""
+from ctkm_rules import *   # GROUP, AWO, nfc, assign, regroup, ct_base, campaign, awo
 frames=[]
 for f in sorted(glob.glob(os.path.join(WORK,"ctkm","lines_????-??.csv"))):
     d=pd.read_csv(f,dtype=str,keep_default_na=False)
@@ -97,3 +48,7 @@ print(P.groupby("grp").size().to_dict())
 print(P[P.awo!=""].groupby("awo").size().to_dict())
 m=d[d.month=="2026-03"]; print("T3: ns",round(m.tt.sum()/1e6),"ck",round(m.ck.sum()/1e6))
 print((m.groupby("grp").tt.sum()/1e6).round(0).sort_values(ascending=False).to_dict())
+
+# Tab Hàng hóa dùng cùng dữ liệu dòng hàng -> chạy kèm để tác vụ định kỳ (vòng lặp contact/ctkm/xnbh/feedback) không cần sửa.
+if not os.environ.get("SKIP_HH"):
+    import runpy; runpy.run_path(os.path.join(os.path.dirname(os.path.abspath(__file__)),"hanghoa.py"),run_name="__main__")
