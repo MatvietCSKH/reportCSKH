@@ -227,6 +227,8 @@ def build():
             for r in v:
                 for kk in ("rev", "rev_n", "rev_u"):
                     if kk in r and r[kk] is not None: r[kk] = int(round(r[kk]))
+    sms = os.path.join(ROOT, "src", "sms.json")   # tab SMS/ZNS: số tổng hợp do CRM/SMS/.work/build_report.py xuất (không có SĐT)
+    if os.path.exists(sms): d["sms"] = json.load(open(sms, encoding="utf-8"))
     data = json.dumps(d, ensure_ascii=False, separators=(",", ":")).replace("</script", "<\\/script")
     t = open(os.path.join(ROOT, "src", "template.html"), encoding="utf-8").read()
     app = open(os.path.join(ROOT, "src", "app.js"), encoding="utf-8").read()

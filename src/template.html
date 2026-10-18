@@ -147,6 +147,7 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <button class="tab" role="tab" data-v="km">CTKM</button>
     <button class="tab" role="tab" data-v="awo">CTKM AWO tại CH</button>
     <button class="tab" role="tab" data-v="hh">Hàng hóa</button>
+    <button class="tab" role="tab" data-v="sms">SMS / ZNS</button>
     <button class="tab" role="tab" data-v="xnbh">XNBH</button>
     <button class="tab" role="tab" data-v="fb">Phản hồi KH</button>
   </div>
@@ -308,6 +309,36 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
       <li><b>CTKM</b>: từng dòng hàng gán theo quy tắc tab CTKM (MUĐ → Ontop tổng → Ontop → Combo → CSGG/thẻ TV → Nguyên giá) rồi gom theo chiến dịch; mỗi bill quy về <b>1 CTKM chính</b> = chiến dịch có doanh số lớn nhất trong bill (bill không có CTKM nào = Nguyên giá). Bộ lọc CTKM và các bảng của tab này đều dùng CTKM chính của bill (khác tab CTKM tính theo từng dòng hàng). Các chiến dịch nhỏ ngoài top 45 gom vào “CTKM khác”.</li>
       <li><b>Hạng thẻ</b> theo cột “Mã loại thẻ thành viên” của bill (Diamond → Member, còn lại Non-MB). <b>NetSale</b> = Số tiền trước VAT; <b>%CK</b> = CK / (NetSale + CK).</li>
       <li>Tier / AM / Model của cửa hàng theo bảng phân loại hiện hành (giống tab XNBH). <span id="hh-note"></span></li>
+    </ul>
+  </details>
+</section>
+
+<!-- ============ SMS / ZNS ============ -->
+<section class="view" id="v-sms">
+  <div class="warn" id="sms-scope"></div>
+  <div class="kpis" id="sms-kpis"></div>
+  <div class="grid">
+    <div class="card c8"><p class="ttl">Doanh số mang lại theo tháng gửi (triệu đồng)</p><p class="note">DS không trùng (mỗi bill chỉ tính cho 1 chiến dịch) · khi chọn kỳ 1 tháng hiện 12 tháng gần nhất</p><div class="ch"><canvas id="c-sms-month"></canvas></div><div class="legend" id="lg-sms-month"></div></div>
+    <div class="card c4"><p class="ttl">Doanh số theo loại tin (triệu đồng)</p><p class="note">Kỳ đang chọn · DS không trùng</p><div class="ch"><canvas id="c-sms-type"></canvas></div></div>
+    <div class="card c12"><p class="ttl">Từng chiến dịch</p><div class="chips" id="sms-kind" style="margin:6px 0 8px"></div><p class="note">Kỳ đang chọn (theo tháng gửi) · <b>DS dùng mã</b> = bill áp đúng mã trên tin · <b>DS CT/30N</b> = KH nhận tin mua trong khung CT hoặc 30 ngày mà không dùng mã · <b>Tổng DS</b> tính riêng từng chiến dịch, <b>DS không trùng</b> mỗi bill chỉ tính 1 lần · rê chuột lên tên để xem nội dung tin</p><div class="tw" id="t-sms-camp"></div></div>
+  </div>
+  <h2>KH cũ nhận tin vs không nhận tin<small>cùng khung thời gian · chiến dịch gửi hàng loạt</small></h2>
+  <div class="kpis" id="sms-ckpis"></div>
+  <div class="grid">
+    <div class="card c6"><p class="ttl">% KH cũ có mua, theo lần mua gần nhất</p><p class="note">Gộp các chiến dịch đã đủ kỳ đo trong kỳ đang chọn</p><div class="ch s"><canvas id="c-sms-bk"></canvas></div><div class="legend" id="lg-sms-bk"></div></div>
+    <div class="card c6"><p class="ttl">% mua: nhận tin vs không nhận, theo loại chiến dịch</p><p class="note">Nhóm không nhận đã cân theo độ mới · chỉ chiến dịch đủ kỳ đo</p><div class="ch s"><canvas id="c-sms-cmp"></canvas></div><div class="legend" id="lg-sms-cmp"></div></div>
+    <div class="card c12"><p class="ttl">Chi tiết so sánh</p><p class="note">KH cũ = đã mua ít nhất 1 lần trước ngày gửi (lịch sử từ 2019) · nhóm không nhận = KH cũ không nhận tin của chiến dịch đó, cân lại theo cơ cấu lần mua gần nhất (≤6T / 6–12T / 12–24T / &gt;24T) của nhóm nhận · <b>DS tăng thêm</b> = (DS/KH nhận − DS/KH không nhận) × số KH nhận</p><div class="tw" id="t-sms-cmp"></div></div>
+  </div>
+  <details class="def"><summary>Cách tính hiệu quả SMS / ZNS</summary>
+    <ul>
+      <li>Nguồn: báo cáo chi tiết tin nhắn của nhà cung cấp (Brandname CSKH, Brandname quảng cáo, Zalo ZNS, Zalo Voucher) ghép với bill <b>BC21</b> theo Mã KH = SĐT. Chỉ tính tin gửi thành công, bỏ OTP và tin test. DS = cột Thanh toán (sau CK), bill &gt; 0.</li>
+      <li><b>Tin có mã</b>: DS các phiếu BH áp đúng mã gửi trong tin, từ ngày gửi đến HSD ghi trên tin; KH nhận mã mà không dùng mã nhưng mua trong 30 ngày kể từ ngày gửi vẫn tính (cột DS CT/30N). Tin thẻ thành viên: chỉ tính bill quẹt đúng thẻ trong 30 ngày kể từ ngày gửi.</li>
+      <li><b>Tin có thời gian CT</b> (không mã): DS của KH nhận tin mua trong khung CT ghi trên tin, tính từ ngày gửi nếu gửi sau ngày bắt đầu.</li>
+      <li><b>Tin CSKH</b> không mã, không thời gian: DS trong 30 ngày kể từ ngày gửi.</li>
+      <li><b>Luồng tự động phát sinh từ lần mua</b> (XNBH tặng mã, cashvoucher hàng hiệu, Google Review…): loại “đơn gốc” = các bill cùng ngày với bill gần ngày gửi nhất (−30 → +14 ngày), vì tin XNBH thường gửi trước khi bill BH được ghi nhận; mã dùng ngay trên đơn gốc không tính. ZNS có số phiếu BH: tính từ ngày gửi +1.</li>
+      <li><b>DS không trùng</b>: ưu tiên dùng mã → khung CT → 30 ngày; trùng thì cho chiến dịch gửi gần nhất.</li>
+      <li>So sánh nhận / không nhận là ước tính: danh sách nhận tin được chọn lọc (sinh nhật, VIP, gần cửa hàng…) chứ không chia ngẫu nhiên; nhóm không nhận vẫn có thể nhận tin khác. Muốn đo chuẩn nên giữ ~10% danh sách không gửi làm nhóm đối chứng.</li>
+      <li>Bộ lọc <b>Cửa hàng / Model</b> không áp dụng cho tab này.</li>
     </ul>
   </details>
 </section>

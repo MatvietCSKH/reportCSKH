@@ -943,11 +943,87 @@ function initFB(){
 }
 initFB();
 
+/* ---------- SMS / ZNS ---------- */
+const smsSt = { kind:'all' };
+const escH = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dmy = s => s.split('-').reverse().join('/');
+const SMS_KIND = [['all','Tất cả'],['bulk','Gửi hàng loạt'],['auto','Luồng tự động (API)']];
+const SMS_BK = ['≤6 tháng','6–12 tháng','12–24 tháng','>24 tháng'];
+function renderSMS(){
+  const S = D.sms;
+  if (!S){ el('sms-scope').innerHTML='Chưa có dữ liệu tin nhắn.'; return; }
+  const C = S.camps, mt = S.meta, NAVY=cssv('--s1'), YEL=cssv('--s4'), GREY=cssv('--s7');
+  el('sms-scope').innerHTML = `Tin gửi <b>${dmy(mt.sms_from)} → ${dmy(mt.sms_to)}</b> · doanh số BC21 đến <b>${dmy(mt.data_end)}</b> · lọc theo <b>tháng gửi tin</b> trong kỳ đang chọn · số liệu cập nhật khi có file tin nhắn mới từ nhà cung cấp.`;
+  const okKind = ck => smsSt.kind==='all' || (smsSt.kind==='auto') === C[ck].auto;
+  const rows = S.rows.filter(r=>inPeriod(r.m) && okKind(r.ck));
+  const T = {tin:0,kh:0,chi:0,ds_u:0,bill_u:0}; rows.forEach(r=>{ for(const k in T) T[k]+=r[k]; });
+  const chainRev = D.seg_month.filter(r=>inPeriod(r.month) && r.month>=mt.sms_from.slice(0,7)).reduce((a,r)=>a+r.rev,0);
+  el('sms-kpis').innerHTML = [
+    kpi('DS mang lại (không trùng)', fmtB(T.ds_u)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', fmtN(T.bill_u)+' bill'+(chainRev&&smsSt.kind==='all'?' · '+fmtP(T.ds_u,chainRev)+' DS toàn chuỗi':''), null, true),
+    kpi('Tin gửi thành công', fmtN(T.tin), periodLabel()),
+    kpi('Lượt KH nhận tin', fmtN(T.kh), 'cộng theo chiến dịch / tháng'),
+    kpi('Chi phí gửi', fmtB(T.chi)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', 'theo đơn giá nhà mạng'),
+    kpi('DS / 1 đồng chi phí', T.chi? fmtN(T.ds_u/T.chi)+' đ' : '–', 'DS không trùng ÷ chi phí'),
+  ].join('');
+  // theo tháng gửi
+  const ms = months().filter(m=>m>=mt.sms_from.slice(0,7) && m<=mt.sms_to.slice(0,7));
+  const byM = (auto) => ms.map(m=>S.rows.filter(r=>r.m===m && C[r.ck].auto===auto && okKind(r.ck)).reduce((a,r)=>a+r.ds_u,0)/1e6);
+  mk('c-sms-month',{type:'bar',data:{labels:ms.map(mLbl),datasets:[barDs('Gửi hàng loạt',byM(false),NAVY,{stack:'s',borderWidth:0}),barDs('Luồng tự động',byM(true),YEL,{stack:'s',borderWidth:0})]},
+    options:{plugins:{tooltip:ttM},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{callback:v=>fmtN(v)}}}}});
+  TOTALS['c-sms-month']={fmt:v=>fmtN(v)}; charts['c-sms-month'].update();
+  legend('lg-sms-month',[['Chiến dịch gửi hàng loạt',NAVY],['Luồng tự động (API)',YEL]]);
+  // theo loại tin
+  const gt={}; rows.forEach(r=>{ const k=C[r.ck].nhom; gt[k]=(gt[k]||0)+r.ds_u; });
+  const tl=Object.entries(gt).sort((a,b)=>b[1]-a[1]);
+  mk('c-sms-type',{type:'bar',data:{labels:tl.map(x=>wrapLbl(x[0],22)),datasets:[barDs('DS không trùng',tl.map(x=>x[1]/1e6),NAVY,{borderWidth:0,maxBarThickness:20})]},
+    options:{indexAxis:'y',plugins:{tooltip:{callbacks:{label:c=>` ${fmtM(c.parsed.x)} tr`}},datalabels:DL.bar(v=>fmtN(v))},scales:{x:{beginAtZero:true,ticks:{callback:v=>fmtN(v)}},y:{}}}});
+  // bảng chiến dịch
+  el('sms-kind').innerHTML = SMS_KIND.map(([k,l])=>`<button class="dchip" data-k="${k}" aria-pressed="${smsSt.kind===k}">${l}</button>`).join('');
+  el('sms-kind').querySelectorAll('.dchip').forEach(b=>b.onclick=()=>{ smsSt.kind=b.dataset.k; renderSMS(); });
+  const g={}; rows.forEach(r=>{ const x=g[r.ck]||(g[r.ck]={tin:0,kh:0,chi:0,bill:0,kh_mua:0,ds:0,ds_ma:0,ds_khac:0,ds_u:0}); for(const k in x) x[k]+=r[k]; });
+  const list=Object.entries(g).sort((a,b)=>b[1].ds_u-a[1].ds_u); const mx=list.length?Math.max(...list.map(x=>x[1].ds)):0;
+  const TAG={'Mã':'<span class="pill ok">Có mã</span>','Thời gian CT':'<span class="pill mid">Khung CT</span>','CSKH 30 ngày':'<span class="tag">30 ngày</span>'};
+  table('t-sms-camp',['Chiến dịch','Cách đo','KH nhận','KH mua','% mua','Bill','DS dùng mã (tr)','DS CT/30N (tr)','Tổng DS (tr)','DS không trùng (tr)','Chi phí (tr)','DS / 1đ CP'],
+    list.map(([ck,x])=>{ const c=C[ck]; const sub=(c.auto?'Tự động':c.ngay)+' · '+c.kenh+(c.khung?' · CT '+c.khung:'');
+      return [`<span class="nm" title="${escH(c.mau)}"><b>${escH(c.ten)}</b><br><small style="color:var(--fg-3)">${escH(sub)}${c.du||c.auto?'':' · <b style="color:var(--bad)">chưa đủ kỳ đo</b>'}</small></span>`,
+        TAG[c.rule]||c.rule, fmtN(x.kh), fmtN(x.kh_mua), fmtP(x.kh_mua,x.kh), fmtN(x.bill), fmtB(x.ds_ma), fmtB(x.ds_khac), bar(fmtB(x.ds),mx), fmtB(x.ds_u), fmtM(x.chi), x.chi? fmtN(x.ds/x.chi)+' đ':'–']; }),
+    ['Tổng '+list.length+' chiến dịch','',fmtN(T.kh),'','','',fmtB(list.reduce((a,x)=>a+x[1].ds_ma,0)),fmtB(list.reduce((a,x)=>a+x[1].ds_khac,0)),fmtB(list.reduce((a,x)=>a+x[1].ds,0)),fmtB(T.ds_u),fmtM(T.chi),T.chi?fmtN(T.ds_u/T.chi)+' đ':'–']);
+  // so sánh nhận / không nhận
+  const cr = S.cmp.filter(r=>inPeriod(r.m)), cd = cr.filter(r=>r.du);
+  const K = cd.reduce((a,r)=>a+r.kh,0);
+  const crT = K? cd.reduce((a,r)=>a+r.mua,0)/K : 0, crC = K? cd.reduce((a,r)=>a+r.cr_c*r.kh,0)/K : 0;
+  const dT = K? cd.reduce((a,r)=>a+r.dsk_t*r.kh,0)/K : 0, dC = K? cd.reduce((a,r)=>a+r.dsk_c*r.kh,0)/K : 0, inc = cd.reduce((a,r)=>a+r.ds_tang,0);
+  el('sms-ckpis').innerHTML = cd.length ? [
+    kpi('Nhận tin mua nhiều hơn', (crT/crC).toLocaleString('vi-VN',{maximumFractionDigits:1})+' lần', fmtP(crT,1)+' so với '+fmtP(crC,1)+' (nhóm không nhận, đã cân)', null, true),
+    kpi('% mua – KH cũ nhận tin', fmtP(crT,1), fmtN(K)+' lượt KH cũ nhận', NAVY),
+    kpi('% mua – KH cũ không nhận', fmtP(crC,1), 'cân theo lần mua gần nhất', GREY),
+    kpi('DS / KH', fmtN(dT/1000)+'k vs '+fmtN(dC/1000)+'k', 'nhận tin vs không nhận'),
+    kpi('DS tăng thêm ước tính', fmtB(inc)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', cd.filter(r=>r.ds_tang>0).length+'/'+cd.length+' chiến dịch dương'),
+  ].join('') : '<div class="empty">Không có chiến dịch gửi hàng loạt đủ kỳ đo trong kỳ này – chọn Quý / Năm / Toàn bộ để xem.</div>';
+  const bk={}; cd.forEach(r=>{ for(const k in r.bk){ const v=bk[k]||(bk[k]=[0,0]); v[0]+=r.bk[k][0]; v[1]+=r.bk[k][1]; } });
+  const rate=(b,t)=>{ const v=bk[b+'|'+t]; return v&&v[0]? 100*v[1]/v[0] : 0; };
+  const pctLbl = v=>v.toLocaleString('vi-VN',{maximumFractionDigits:1})+'%';
+  mk('c-sms-bk',{type:'bar',data:{labels:SMS_BK,datasets:[barDs('Nhận tin',SMS_BK.map(b=>rate(b,1)),NAVY,{borderWidth:0}),barDs('Không nhận',SMS_BK.map(b=>rate(b,0)),GREY,{borderWidth:0})]},
+    options:{plugins:{tooltip:ttP,datalabels:DL.bar(pctLbl)},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+  legend('lg-sms-bk',[['KH cũ nhận tin',NAVY],['KH cũ không nhận',GREY]]);
+  const gk={}; cd.forEach(r=>{ const k=C[r.ck].nhom; const x=gk[k]||(gk[k]={kh:0,mua:0,cc:0}); x.kh+=r.kh; x.mua+=r.mua; x.cc+=r.cr_c*r.kh; });
+  const kl=Object.entries(gk).sort((a,b)=>b[1].kh-a[1].kh);
+  mk('c-sms-cmp',{type:'bar',data:{labels:kl.map(x=>wrapLbl(x[0],16)),datasets:[barDs('Nhận tin',kl.map(x=>100*x[1].mua/x[1].kh),NAVY,{borderWidth:0}),barDs('Không nhận',kl.map(x=>100*x[1].cc/x[1].kh),GREY,{borderWidth:0})]},
+    options:{plugins:{tooltip:ttP,datalabels:DL.bar(pctLbl)},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+  legend('lg-sms-cmp',[['KH cũ nhận tin',NAVY],['KH cũ không nhận (đã cân)',GREY]]);
+  const ord=cr.slice().sort((a,b)=>b.m.localeCompare(a.m)||b.ngay.split('/').reverse().join('').localeCompare(a.ngay.split('/').reverse().join('')));
+  table('t-sms-cmp',['Chiến dịch','Khung đo','KH cũ nhận','% mua nhận','% mua không nhận','Chênh lệch','DS/KH nhận (k)','DS/KH không nhận (k)','DS tăng thêm (tr)'],
+    ord.map(r=>{ const c=C[r.ck], l=r.cr_c? r.cr_t/r.cr_c-1 : 0;
+      return [`<span class="nm" title="${escH(c.mau)}"><b>${escH(c.ten)}</b><br><small style="color:var(--fg-3)">${r.ngay}${r.du?'':' · <b style="color:var(--bad)">chưa đủ kỳ đo</b>'}</small></span>`,
+        r.tu+' → '+r.den, fmtN(r.kh), fmtP(r.cr_t,1), fmtP(r.cr_c,1), `<span class="${l>=0?'dpos':'dneg'}">${l>=0?'▲ +':'▼ '}${Math.round(l*100)}%</span>`,
+        fmtN(r.dsk_t/1000), fmtN(r.dsk_c/1000), `<span class="${r.ds_tang>=0?'':'dneg'}">${fmtB(r.ds_tang)}</span>`]; }));
+}
+
 /* ---------- wiring ---------- */
 function render(){
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
-  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,xnbh:renderXNBH,fb:renderFB})[state.view]();
+  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,sms:renderSMS,xnbh:renderXNBH,fb:renderFB})[state.view]();
   el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
 }
