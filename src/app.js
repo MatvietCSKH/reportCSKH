@@ -359,6 +359,19 @@ function renderContact(){
   table('t-ct-store',['Cửa hàng','Model','AM','Trạng thái','Tháng có làm','KH trong DS','KH đã liên hệ','% liên hệ','Dùng (có LH)','CR có LH','Dùng (không LH)','CR không LH','DS có LH (tr)'],
     brow.map(([code,g])=>{ const s=storeKho(code)||{}; const p=pct(g.noted,g.listed); return [s.kho||code,MODEL_LBL(s.model||''),s.am||'–',pill(p),g.active.size+'/'+g.months.size,fmtN(g.listed),fmtN(g.noted),bar(fP(p),100),fmtN(g.red_n),fmtP(g.red_n,g.noted),fmtN(g.red_u),fmtP(g.red_u,g.listed-g.noted),fmtB(g.rev_n)]; }),
     ['Tổng','','','',''+periodMonths().length,fmtN(T.listed),fmtN(T.noted),fP(pct(T.noted,T.listed)),fmtN(T.red_n),fP1(crN),fmtN(T.red_u),fP1(crU),fmtB(T.rev_n)]);
+  // Xếp hạng thưởng CH: (1) liên hệ ≥90% DS mới xét, (2) CR có liên hệ cao nhất, (3) doanh số từ KH có liên hệ. Bỏ CH có DS < 100 KH (mẫu quá nhỏ).
+  const RK_PCT=90, RK_MIN=100;
+  const rk=Object.entries(bs).map(([code,g])=>{ const p=pct(g.noted,g.listed); const cr=g.noted?g.red_n/g.noted*100:0;
+    const why = g.listed<RK_MIN ? 'DS dưới '+RK_MIN+' KH' : p<RK_PCT ? 'Liên hệ dưới '+RK_PCT+'%' : '';
+    return {code,g,p,cr,ok:!why,why}; });
+  rk.sort((a,b)=> (b.ok-a.ok) || (a.ok? (b.cr-a.cr)||(b.g.rev_n-a.g.rev_n) : (b.p-a.p)||(b.g.rev_n-a.g.rev_n)));
+  let rn=0;
+  table('t-ct-rank',['Hạng','Cửa hàng','Model','AM','KH trong DS','% liên hệ','Dùng voucher (có LH)','CR có LH','DS từ KH có LH (tr)','Ghi chú'],
+    rk.map(x=>{ const s=storeKho(x.code)||{}; const h=x.ok? ++rn : '–';
+      const tag = x.ok ? (h<=3?'<span class="pill ok">Top '+h+'</span>':'') : '<span class="pill no">'+x.why+'</span>';
+      const lowN = x.ok && x.g.red_n<5 ? ' <span class="pill mid">ít mẫu (&lt;5 KH dùng)</span>' : '';
+      return [h,s.kho||x.code,MODEL_LBL(s.model||''),s.am||'–',fmtN(x.g.listed),fP(x.p),fmtN(x.g.red_n),fP1(x.cr),fmtB(x.g.rev_n),tag+lowN]; }));
+  if(!rk.length) el('t-ct-rank').innerHTML='<div class="empty">Không có dữ liệu cho kỳ này</div>';
 }
 /* ================= CTKM ================= */
 const K = D.ctkm || {kho:[],progs:[],day:[],prog:[],months:[],awo_kpi:14};
