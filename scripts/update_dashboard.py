@@ -23,7 +23,7 @@ HAS_OD = bool(BAOCAO)
 BC21 = os.path.join(BAOCAO, "Data BC21")
 STORE_DIR = os.path.join(OD, "Store - Data CSKH", "2024")
 CTCRM = os.path.join(BAOCAO, "CT CRM.2023.xlsx")
-SKIP_STORES = {"220", "226", "311", "403"}  # CH bỏ qua (file chỉ trên cloud)
+SKIP_STORES = {"220", "226", "311", "403"}  # CH đã ngừng hoạt động, bỏ qua
 MONTH_FILE = re.compile(r"^(T\d{1,2}(\.\d{2,4})?( ?\d)?|(\d{2} - )?\d{4})\.(xlsx|xls)$", re.I)   # T10.xlsx, hoặc file tạm "01 - 1110.xls" / theo ngày "1210.xls"
 
 def sources():
