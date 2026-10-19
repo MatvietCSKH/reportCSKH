@@ -740,7 +740,8 @@ function storeKho(code){ const s=D.stores.find(x=>x.kho.startsWith(code+'-')); r
 function renderContact(){
   const S3=cssv('--s3'), S2=cssv('--s2'), GREY=cssv('--t6'), ACC=cssv('--accent');
   const okS = code => { const s=storeKho(code); if (state.store && code!==storeCode(state.store)) return false; return !s || state.models.has(s.model) || !MODELS.includes(s.model); };
-  const rowsAll=D.contact_month.filter(r=>r.month<='2026-09'&&okS(r.store));
+  const ctMax=D.contact_month.reduce((m,r)=>r.month>m?r.month:m,'');   // tháng mới nhất có dữ liệu liên hệ (trước đây cố định 2026-09)
+  const rowsAll=D.contact_month.filter(r=>r.month<=ctMax&&okS(r.store));
   const rows=rowsAll.filter(r=>inPeriod(r.month)); const rowsC=rowsAll.filter(r=>inChart(r.month));
   const ms=[...new Set(rowsC.map(r=>r.month))].sort();
   const byM={}; for(const r of rowsC){ const g=byM[r.month]||(byM[r.month]={listed:0,noted:0,red_n:0,red_u:0,rev_n:0,rev_u:0}); for(const k in g) g[k]+=r[k]; }
@@ -759,7 +760,7 @@ function renderContact(){
   mk('c-ct-cr',{type:'line',data:{labels:lbl,datasets:[lineDs('Có liên hệ',ms.map(m=>pct(byM[m].red_n,byM[m].noted)),S3),lineDs('Không liên hệ',ms.map(m=>pct(byM[m].red_u,byM[m].listed-byM[m].noted)),GREY)]},
     options:{plugins:{tooltip:ttP},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
   legend('lg-ct-cr',[['Có liên hệ',S3],['Không liên hệ',GREY]]);
-  const inCt = r => r.month<='2026-09' && inPeriod(r.month) && okS(r.store);   // cùng bộ lọc kỳ / CH / model với các bảng trên
+  const inCt = r => r.month<=ctMax && inPeriod(r.month) && okS(r.store);   // cùng bộ lọc kỳ / CH / model với các bảng trên
   const gm={}; for(const r of D.contact_method.filter(inCt)){ const g=gm[r.meth]||(gm[r.meth]={n:0,red:0,rev:0}); g.n+=r.n; g.red+=r.red; g.rev+=r.rev; }
   const mName=k=>k==='Khác/không ghi'?'Có ghi nhận, không rõ hình thức':k;
   table('t-ct-method',['Hình thức','Số KH','Dùng voucher','CR','Doanh số (tr)'],Object.entries(gm).sort((a,b)=>b[1].n-a[1].n).map(([k,g])=>[mName(k),fmtN(g.n),fmtN(g.red),fmtP(g.red,g.n),fmtB(g.rev)]));
