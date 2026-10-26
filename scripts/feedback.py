@@ -21,17 +21,18 @@ TAGS = [   # (nhãn, regex trên nội dung KH) — sửa/thêm khi xuất hiệ
  ("Quyền lợi thẻ TV / ưu đãi chưa áp dụng", r"hạng thành viên|quyền lợi|không kiểm tra kỹ|chỉ được ưu đãi|không được tư vấn (các )?(thông tin )?(ưu đãi|ctkm|chương trình)|không tư vấn chương trình|chỉ có chương trình đánh giá"),
  ("Tư vấn chưa rõ / chưa đúng", r"tư vấn (chưa|không|sai|thiếu)|chưa tư vấn|không tư vấn|minh bạch|giải thích chưa|chẩn đoán sai|mẫu kính nữ|chưa chủ động"),
  ("Thiếu KTV / chờ lâu", r"không có (kỹ thuật viên|ng(ười)? đo)|ko có ng|chờ (khá )?lâu|đợi lâu|quá lâu|thiếu nhân sự|lâu hơn dự kiến|chờ đo kính|lấy kính cũng lâu"),
- ("Đo mắt / sai độ", r"đo mắt|đo kính|kết quả đo|sai độ|số độ|độ kính|cắt sai|tức mắt|nhìn còn mờ|váng đầu|kính nhìn gần"),
+ ("Đo mắt / sai độ", r"đo mắt|đo kính|kết quả đo|sai độ|số độ|độ kính|cắt sai|tức mắt|nhìn còn mờ|váng đầu|kính nhìn gần|choáng|chóng mặt|mỏi mắt|giảm độ|tăng độ|mờ một bên|nhìn (sang|xa|gần) .{0,12}bị"),
+ ("Giao sai sản phẩm / sai đơn", r"giao (nhầm|sai)|đặt .{0,40}nhưng (được )?giao|giao .{0,20}(khác|không đúng) (với )?(sản phẩm|mẫu|loại|chiết suất)|sai (sản phẩm|mẫu|chiết suất|loại tròng)"),
  ("Giữ kết quả đo / ép mua", r"không cho biết kết quả|phải mua kính mới đo|\\bép\\b|chưa gì đã"),
- ("Lỗi / độ bền sản phẩm", r"trầy|bong tróc|gãy|nứt|vỡ|rỉ|gỉ|ngoạc|xuống cấp|không cảm nhận được sự thay đổi màu|logo trên tròng|lớp váng|bành|chất lượng (kém|k tốt|tệ)|cực kỳ tệ|oxy hóa|rơi ra|chống trầy|vết mẻ|\bmẻ\b|sắc/bén|bám nước|hơi nước|bị mờ|dễ bị tụt|cân chỉnh nhiều lần"),
+ ("Lỗi / độ bền sản phẩm", r"trầy|bong tróc|gãy|nứt|vỡ|rỉ|gỉ|ngoạc|xuống cấp|không cảm nhận được sự thay đổi màu|logo trên tròng|lớp váng|bành|chất lượng (kém|k tốt|tệ)|cực kỳ tệ|oxy hóa|rơi ra|chống trầy|vết mẻ|\bmẻ\b|sắc/bén|bám nước|hơi nước|bị mờ|dễ (bị )?tụt|cân chỉnh nhiều lần|xước|bám bẩn|đốm|chấm nhỏ|phải nhô|nhô ra|lỗi sản phẩm"),
  ("Bảo hành / sửa chữa", r"bảo hành|không thuộc phạm vi|sửa chữa|chỉnh (gọng|kính|lại)|hết thời gian"),
  ("Chi phí phát sinh", r"chi phí|phát sinh phí"),
  ("Đổi trả / hoàn tiền", r"đổi hàng|đổi trả|trả hàng|trả lại|hoàn tiền|hoàn lại|chênh lệch|đổi sang mẫu khác|đổi sản phẩm"),
  ("Hàng trưng bày / không mới", r"hàng trưng bày|là hàng trưng bày|seal|không còn mới|đã qua sử dụng"),
- ("Giá cao", r"mắc|đắt|so với giá tiền|giá thấp hơn|> ?2 triệu|giàu|tương xứng với giá tiền"),
+ ("Giá cao", r"(?<!thắc )mắc|đắt|so với giá tiền|giá thấp hơn|> ?2 triệu|giàu|tương xứng với giá tiền|thất vọng với .{0,20}triệu"),
  ("Tồn kho / thông báo đơn hàng", r"hết tròng|tồn kho|chờ hàng"),
  ("Thanh toán / hóa đơn bất thường", r"tk cá nhân|tài khoản cá nhân|quẹt thẻ của nv|\\bhdd\\b|không thể cung cấp cho chúng tôi hóa đơn|hóa đơn không ghi rõ"),
- ("Quà tặng / CTKM / phụ kiện", r"quà tặng|khuyến mãi|ctkm|bao kính|hộp kính|phần quà"),
+ ("Quà tặng / CTKM / phụ kiện", r"quà tặng|khuyến mãi|ctkm|bao kính|hộp kính|phần quà|mã giảm|voucher|mã sinh nhật|ưu đãi sinh nhật"),
  ("Khen / không phản ánh", r"^(?=.*(khen|hài lòng|không có nhu cầu))(?!.*(tuy nhiên|nhưng|không (được )?thoải mái|bực|khó chịu)).*$"),
  ("Cơ sở vật chất / thông tin CH", r"giữ xe|\\bmap\\b|đóng cửa|mặt bằng"),
  ("Thương hiệu / truyền thông", r"đại sứ|lưỡi bò|nhãn hàng"),
@@ -73,6 +74,7 @@ def main():
         ds = parse_date(r.get("Ngày"), r.get("Tháng"))
         low = note.lower()
         tags = [t for t, p in TAGS if p != r"^$" and re.search(p, low)]
+        if len(tags) > 1 and "Khen / không phản ánh" in tags: tags.remove("Khen / không phản ánh")   # có vấn đề khác thì không phải lời khen
         if note and len(note) < 60 and not tags: tags = ["Review ngắn, chưa rõ vấn đề"]
         if not note: sev = 0
         elif re.search(SEV3, low): sev = 3
