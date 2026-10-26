@@ -922,7 +922,8 @@ function renderFB(){
   legend('lg-fb-ch',chL.map((x,i)=>[x[0]+' · '+x[1],PAL[i%PAL.length]]));
   // vấn đề cụ thể
   const tg={}; rows.forEach(r=>r.tags.forEach(t=>{ const g=tg[t]||(tg[t]={n:0,s3:0}); g.n++; if(r.sev===3) g.s3++; }));
-  const tl=Object.entries(tg).sort((a,b)=>b[1].n-a[1].n);
+  const tl=Object.entries(tg).sort((a,b)=>b[1].n-a[1].n); const tagN=tl.reduce((a,x)=>a+x[1].n,0), multi=rows.filter(r=>r.tags.length>1).length, none=rows.filter(r=>!r.tags.length).length;
+  el('fb-tag-note').innerHTML = `<b>${fmtN(tagN)} lượt vấn đề</b> trên <b>${fmtN(n)} phản hồi</b>` + (multi?` — ${fmtN(multi)} phản hồi được gắn từ 2 vấn đề trở lên nên tổng lượt lớn hơn số phản hồi`:'') + (none?` · ${fmtN(none)} phản hồi chưa gắn được vấn đề`:'') + ' · tự nhận diện theo từ khoá trong nội dung KH · màu đỏ = phần nghiêm trọng';
   mk('c-fb-tag',{type:'bar',data:{labels:tl.map(x=>x[0]),datasets:[barDs('Nghiêm trọng',tl.map(x=>x[1].s3),BAD,{stack:'s',maxBarThickness:18}),barDs('Khác',tl.map(x=>x[1].n-x[1].s3),S1,{stack:'s',maxBarThickness:18})]},
     options:{indexAxis:'y',plugins:{tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.x}`}},datalabels:DL.inside(v=>v||'',.25)},scales:{x:{stacked:true,beginAtZero:true,ticks:{precision:0}},y:{stacked:true,ticks:{font:{size:10.5}}}}}});
   // content × group

@@ -17,12 +17,13 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 DASH = os.path.join(ROOT, ".work", "dash.json")
 
 TAGS = [   # (nhãn, regex trên nội dung KH) — sửa/thêm khi xuất hiện nhóm vấn đề mới
- ("Thái độ / giao tiếp NV", r"thái độ|thô bạo|tôn trọng|né tránh|đổ thừa|không tin|giọng điệu|phát ngôn|đòi hỏi quá|không lắng nghe|chưa lắng nghe|thiếu hợp tác|chưa niềm nở|không quan tâm|chưa quan tâm|thế chị|\\bdí\\b|cách các bạn giải quyết|ganh tị"),
+ ("Thái độ / giao tiếp NV", r"thái độ|thô bạo|tôn trọng|né tránh|đổ thừa|không tin|giọng điệu|phát ngôn|đòi hỏi quá|không lắng nghe|chưa lắng nghe|thiếu hợp tác|chưa niềm nở|không quan tâm|chưa quan tâm|thế chị|\\bdí\\b|cách các bạn giải quyết|ganh tị|không (được )?thoải mái|bực bội|bức xúc|khó chịu|hơi ẩu|đi theo sát|chỉ nói là không có|tiếp đón"),
+ ("Quyền lợi thẻ TV / ưu đãi chưa áp dụng", r"hạng thành viên|quyền lợi|không kiểm tra kỹ|chỉ được ưu đãi|không được tư vấn (các )?(thông tin )?(ưu đãi|ctkm|chương trình)|không tư vấn chương trình|chỉ có chương trình đánh giá"),
  ("Tư vấn chưa rõ / chưa đúng", r"tư vấn (chưa|không|sai|thiếu)|chưa tư vấn|không tư vấn|minh bạch|giải thích chưa|chẩn đoán sai|mẫu kính nữ|chưa chủ động"),
- ("Thiếu KTV / chờ lâu", r"không có (kỹ thuật viên|ng(ười)? đo)|ko có ng|chờ (khá )?lâu|đợi lâu|quá lâu|thiếu nhân sự|lâu hơn dự kiến"),
+ ("Thiếu KTV / chờ lâu", r"không có (kỹ thuật viên|ng(ười)? đo)|ko có ng|chờ (khá )?lâu|đợi lâu|quá lâu|thiếu nhân sự|lâu hơn dự kiến|chờ đo kính|lấy kính cũng lâu"),
  ("Đo mắt / sai độ", r"đo mắt|đo kính|kết quả đo|sai độ|số độ|độ kính|cắt sai|tức mắt|nhìn còn mờ|váng đầu|kính nhìn gần"),
  ("Giữ kết quả đo / ép mua", r"không cho biết kết quả|phải mua kính mới đo|\\bép\\b|chưa gì đã"),
- ("Lỗi / độ bền sản phẩm", r"trầy|bong tróc|gãy|nứt|vỡ|rỉ|gỉ|ngoạc|xuống cấp|không cảm nhận được sự thay đổi màu|logo trên tròng|lớp váng|bành|chất lượng (kém|k tốt|tệ)|cực kỳ tệ|oxy hóa|rơi ra|chống trầy"),
+ ("Lỗi / độ bền sản phẩm", r"trầy|bong tróc|gãy|nứt|vỡ|rỉ|gỉ|ngoạc|xuống cấp|không cảm nhận được sự thay đổi màu|logo trên tròng|lớp váng|bành|chất lượng (kém|k tốt|tệ)|cực kỳ tệ|oxy hóa|rơi ra|chống trầy|vết mẻ|\bmẻ\b|sắc/bén|bám nước|hơi nước|bị mờ|dễ bị tụt|cân chỉnh nhiều lần"),
  ("Bảo hành / sửa chữa", r"bảo hành|không thuộc phạm vi|sửa chữa|chỉnh (gọng|kính|lại)|hết thời gian"),
  ("Chi phí phát sinh", r"chi phí|phát sinh phí"),
  ("Đổi trả / hoàn tiền", r"đổi hàng|đổi trả|trả hàng|trả lại|hoàn tiền|hoàn lại|chênh lệch|đổi sang mẫu khác|đổi sản phẩm"),
@@ -30,13 +31,14 @@ TAGS = [   # (nhãn, regex trên nội dung KH) — sửa/thêm khi xuất hiệ
  ("Giá cao", r"mắc|đắt|so với giá tiền|giá thấp hơn|> ?2 triệu|giàu|tương xứng với giá tiền"),
  ("Tồn kho / thông báo đơn hàng", r"hết tròng|tồn kho|chờ hàng"),
  ("Thanh toán / hóa đơn bất thường", r"tk cá nhân|tài khoản cá nhân|quẹt thẻ của nv|\\bhdd\\b|không thể cung cấp cho chúng tôi hóa đơn|hóa đơn không ghi rõ"),
- ("Quà tặng / CTKM", r"quà tặng|khuyến mãi|ctkm"),
+ ("Quà tặng / CTKM / phụ kiện", r"quà tặng|khuyến mãi|ctkm|bao kính|hộp kính|phần quà"),
+ ("Khen / không phản ánh", r"^(?=.*(khen|hài lòng|không có nhu cầu))(?!.*(tuy nhiên|nhưng|không (được )?thoải mái|bực|khó chịu)).*$"),
  ("Cơ sở vật chất / thông tin CH", r"giữ xe|\\bmap\\b|đóng cửa|mặt bằng"),
  ("Thương hiệu / truyền thông", r"đại sứ|lưỡi bò|nhãn hàng"),
  ("Review ngắn, chưa rõ vấn đề", r"^$"),
 ]
 SEV3 = r"không bao giờ quay lại|ko bao giờ|sẽ không (tiếp tục|quay lại)|không có ý định quay lại|tránh xa|bị lừa|lừa|1 sao|từ chối mua|chuyển sang mua|tồi tệ|tiền mất tật mang|phá đi danh tiếng|lưỡi bò|tk cá nhân"
-SEV1 = r"đánh giá (tốt|cao|hài lòng)|hài lòng về|không có bất kỳ phản ánh|rất thân thiện|đề xuất|góp ý"
+SEV1 = r"đánh giá (tốt|cao|hài lòng)|hài lòng về|không có bất kỳ phản ánh|rất thân thiện|đề xuất|góp ý|chỉ muốn góp ý|vẫn đang hài lòng|kh khen"
 
 def nfc(s): return unicodedata.normalize("NFC", re.sub(r"[ \t]+", " ", str(s))).strip() if s is not None and str(s) != "nan" else ""
 def redact(s):
