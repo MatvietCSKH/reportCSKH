@@ -17,24 +17,25 @@ HERE = os.path.dirname(os.path.abspath(__file__)); ROOT = os.path.dirname(HERE)
 DASH = os.path.join(ROOT, ".work", "dash.json")
 
 TAGS = [   # (nhãn, regex trên nội dung KH) — sửa/thêm khi xuất hiện nhóm vấn đề mới
- ("Thái độ / giao tiếp NV", r"thái độ|thô bạo|tôn trọng|né tránh|đổ thừa|không tin|giọng điệu|phát ngôn|đòi hỏi quá|không lắng nghe|chưa lắng nghe|thiếu hợp tác|chưa niềm nở|không quan tâm|chưa quan tâm|thế chị|\\bdí\\b|cách các bạn giải quyết|ganh tị|không (được )?thoải mái|bực bội|bức xúc|khó chịu|hơi ẩu|đi theo sát|chỉ nói là không có|tiếp đón"),
+ ("Thái độ / giao tiếp NV", r"thái độ|thô bạo|tôn trọng|né tránh|đổ thừa|không tin|giọng điệu|phát ngôn|đòi hỏi quá|không lắng nghe|chưa lắng nghe|thiếu hợp tác|chưa niềm nở|không quan tâm|chưa quan tâm|thế chị|\dí\|cách các bạn giải quyết|ganh tị|không (được )?thoải mái|thái độ khó chịu|tỏ (ra|thái độ) khó chịu|(nhân viên|nvbh|ktv|người đo|bạn nv|bạn nhân viên)[^.;,]{0,30}khó chịu|hơi ẩu|đi theo sát|chỉ nói là không có|tiếp đón|làm việc kiểu gì|kiểu gì vậy|nói chuyện khó nghe|(chậm|không|không chịu) nhận lỗi"),
  ("Quyền lợi thẻ TV / ưu đãi chưa áp dụng", r"hạng thành viên|quyền lợi|không kiểm tra kỹ|chỉ được ưu đãi|không được tư vấn (các )?(thông tin )?(ưu đãi|ctkm|chương trình)|không tư vấn chương trình|chỉ có chương trình đánh giá"),
  ("Tư vấn chưa rõ / chưa đúng", r"tư vấn (chưa|không|sai|thiếu)|chưa tư vấn|không tư vấn|minh bạch|giải thích chưa|chẩn đoán sai|mẫu kính nữ|chưa chủ động"),
  ("Thiếu KTV / chờ lâu", r"không có (kỹ thuật viên|ng(ười)? đo)|ko có ng|chờ (khá )?lâu|đợi lâu|quá lâu|thiếu nhân sự|lâu hơn dự kiến|chờ đo kính|lấy kính cũng lâu"),
- ("Đo mắt / sai độ", r"đo mắt|đo kính|kết quả đo|sai độ|số độ|độ kính|cắt sai|tức mắt|nhìn còn mờ|váng đầu|kính nhìn gần|choáng|chóng mặt|mỏi mắt|giảm độ|tăng độ|mờ một bên|nhìn (sang|xa|gần) .{0,12}bị"),
+ ("Đo mắt / sai độ", r"đo (mắt|kính) (sai|nhanh|ẩu|qua loa|không chính xác|chênh|lệch)|đo (sai|lệch|chênh)|lệch độ|chấm lệch|kết quả đo|sai độ|số độ|độ kính|cắt sai|tức mắt|nhìn còn mờ|váng đầu|kính nhìn gần|choáng|chóng mặt|mỏi mắt|giảm độ|tăng độ|mờ một bên|nhìn (sang|xa|gần) .{0,12}bị"),
  ("Giao sai sản phẩm / sai đơn", r"giao (nhầm|sai)|đặt .{0,40}nhưng (được )?giao|giao .{0,20}(khác|không đúng) (với )?(sản phẩm|mẫu|loại|chiết suất)|sai (sản phẩm|mẫu|chiết suất|loại tròng)"),
- ("Giữ kết quả đo / ép mua", r"không cho biết kết quả|phải mua kính mới đo|\\bép\\b|chưa gì đã"),
- ("Lỗi / độ bền sản phẩm", r"trầy|bong tróc|gãy|nứt|vỡ|rỉ|gỉ|ngoạc|xuống cấp|không cảm nhận được sự thay đổi màu|logo trên tròng|lớp váng|bành|chất lượng (kém|k tốt|tệ)|cực kỳ tệ|oxy hóa|rơi ra|chống trầy|vết mẻ|\bmẻ\b|sắc/bén|bám nước|hơi nước|bị mờ|dễ (bị )?tụt|cân chỉnh nhiều lần|xước|bám bẩn|đốm|chấm nhỏ|phải nhô|nhô ra|lỗi sản phẩm"),
+ ("Giữ kết quả đo / ép mua", r"không cho biết kết quả|phải mua kính mới đo|\ép\|chưa gì đã"),
+ ("Từ chối phục vụ / không nhận gia công", r"không dám (nhận|cắt|làm)|không (nhận|chịu) (cắt|làm|gia công)|từ chối (cắt|nhận|phục vụ|làm|hỗ trợ)|kêu không làm được|không hỗ trợ (thay|cắt|đổi)|không (thể|được) hỗ trợ"),
+ ("Lỗi / độ bền sản phẩm", r"trầy|bong tróc|gãy|nứt|vỡ|rỉ|gỉ|ngoạc|xuống cấp|không cảm nhận được sự thay đổi màu|logo trên tròng|lớp váng|bành|chất lượng (kém|k tốt|tệ)|cực kỳ tệ|oxy hóa|rơi ra|chống trầy|vết mẻ|mẻ|sắc/bén|bám nước|hơi nước|gây mờ|dễ (bị )?tụt|cân chỉnh nhiều lần|xước|bám bẩn|đốm|chấm nhỏ|phải nhô|nhô ra|lỗi sản phẩm"),
  ("Bảo hành / sửa chữa", r"bảo hành|không thuộc phạm vi|sửa chữa|chỉnh (gọng|kính|lại)|hết thời gian"),
  ("Chi phí phát sinh", r"chi phí|phát sinh phí"),
- ("Đổi trả / hoàn tiền", r"đổi hàng|đổi trả|trả hàng|trả lại|hoàn tiền|hoàn lại|chênh lệch|đổi sang mẫu khác|đổi sản phẩm"),
+ ("Đổi trả / hoàn tiền", r"đổi hàng|đổi trả|trả hàng|trả lại|hoàn tiền|hoàn lại|(tiền|giá|mất|bù|phí) chênh lệch|chênh lệch (tiền|giá)|đổi sang mẫu khác|đổi sản phẩm"),
  ("Hàng trưng bày / không mới", r"hàng trưng bày|là hàng trưng bày|seal|không còn mới|đã qua sử dụng"),
- ("Giá cao", r"(?<!thắc )mắc|đắt|so với giá tiền|giá thấp hơn|> ?2 triệu|giàu|tương xứng với giá tiền|thất vọng với .{0,20}triệu"),
+ ("Giá cao", r"quá (mắc|đắt)|(mắc|đắt) (quá|hơn|ghê|vậy|thế)|càng (ngày càng )?(mắc|đắt)|(?<!đánh )(?<!không phải là )(?<!không phải )giá (cao|mắc|đắt|chát)|so với giá tiền|giá thấp hơn|chưa đồng nhất về giá|> ?2 triệu|giàu ghê|tương xứng với giá tiền"),
  ("Tồn kho / thông báo đơn hàng", r"hết tròng|tồn kho|chờ hàng"),
- ("Thanh toán / hóa đơn bất thường", r"tk cá nhân|tài khoản cá nhân|quẹt thẻ của nv|\\bhdd\\b|không thể cung cấp cho chúng tôi hóa đơn|hóa đơn không ghi rõ"),
+ ("Thanh toán / hóa đơn bất thường", r"tk cá nhân|tài khoản cá nhân|quẹt thẻ của nv|\hdd\|không thể cung cấp cho chúng tôi hóa đơn|hóa đơn không ghi rõ|phát s[ia]nh tăng giá|tính tiền .{0,15}tăng giá|niêm yết .{0,30}tính tiền"),
  ("Quà tặng / CTKM / phụ kiện", r"quà tặng|khuyến mãi|ctkm|bao kính|hộp kính|phần quà|mã giảm|voucher|mã sinh nhật|ưu đãi sinh nhật"),
- ("Khen / không phản ánh", r"^(?=.*(khen|hài lòng|không có nhu cầu))(?!.*(tuy nhiên|nhưng|không (được )?thoải mái|bực|khó chịu)).*$"),
- ("Cơ sở vật chất / thông tin CH", r"giữ xe|\\bmap\\b|đóng cửa|mặt bằng"),
+ ("Khen / không phản ánh", r"(?s)^(?=.*(khen|(?<!không )(?<!chưa )(?<!k )(?<!ko )hài lòng|không có nhu cầu|không có bất kỳ phản ánh))(?!.*(tuy nhiên|nhưng|không (được )?thoải mái|bực|khó chịu|(?<!bất kỳ )phản ánh)).*$"),
+ ("Cơ sở vật chất / thông tin CH", r"giữ xe|\map\|đóng cửa|mặt bằng"),
  ("Thương hiệu / truyền thông", r"đại sứ|lưỡi bò|nhãn hàng"),
  ("Review ngắn, chưa rõ vấn đề", r"^$"),
 ]
@@ -43,7 +44,7 @@ SEV1 = r"đánh giá (tốt|cao|hài lòng)|hài lòng về|không có bất k�
 
 def nfc(s): return unicodedata.normalize("NFC", re.sub(r"[ \t]+", " ", str(s))).strip() if s is not None and str(s) != "nan" else ""
 def redact(s):
-    s = re.sub(r"\b0\d{8,10}\b|\b\d{9,11}\b", "[SĐT]", s)
+    s = re.sub(r"0\d{8,10}|\d{9,11}", "[SĐT]", s)
     s = re.sub(r"(Khách hàng|KH|Khách)\s+((?:[A-ZĐ][a-zà-ỹđ]+\s+){1,3})(phản|cho|mua|đã|sử)", r"\1 \3", s)   # "Khách hàng Phúc Phùng phản ánh" -> "Khách hàng phản ánh"
     return s
 def find_src():
