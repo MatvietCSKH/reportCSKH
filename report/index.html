@@ -112,6 +112,8 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 .pill{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:999px;font-weight:600}.pill.ok{background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}.pill.mid{background:color-mix(in srgb,var(--s4) 22%,transparent);color:var(--fg)}.pill.no{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
 .subbar{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;margin:0 0 14px;font-size:13px;color:var(--fg-2)}
 .subbar select{max-width:100%}
+.case-frame{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;height:calc(100vh - 150px);min-height:560px}.case-frame iframe{width:100%;height:100%;border:0;display:block}
+.case-open{margin-left:auto;color:var(--deep-blue);background:var(--accent-yellow);padding:5px 12px;border-radius:999px;font-weight:700;text-decoration:none;font-size:12px}
 .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--surface-2);color:var(--fg-2);font-weight:600;white-space:nowrap}
 .nm{display:inline-block;min-width:260px;max-width:440px;text-align:left;white-space:normal;line-height:1.35}
 #t-km-prog td:nth-child(2),#t-awo-prog td:nth-child(2),#t-km-prog td:nth-child(4),#t-km-prog th:nth-child(4),#t-km-prog th:nth-child(2),#t-awo-prog th:nth-child(2),#t-km-store th:last-child{text-align:left}
@@ -164,6 +166,7 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <button class="tab" role="tab" data-v="sms">SMS / ZNS</button>
     <button class="tab" role="tab" data-v="xnbh">XNBH</button>
     <button class="tab" role="tab" data-v="fb">Phản hồi KH</button>
+    <button class="tab" role="tab" data-v="case">Ticket khiếu nại</button>
   </div>
   <div class="filters">
     <label for="fType">Kỳ</label>
@@ -413,6 +416,11 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
   </div>
 </section>
 
+<!-- ============ TICKET KHIẾU NẠI (app Case CSKH nhúng, đăng nhập một lần) ============ -->
+<section class="view" id="v-case">
+  <div class="subbar" id="case-bar"><span class="note" style="margin:0">App <b>Case CSKH</b> (ticket khiếu nại) mở ngay tại đây với tài khoản đang đăng nhập.</span><a class="case-open" id="case-open" href="/sso/case?embed=0" target="_blank" rel="noopener">Mở trong tab mới ↗</a></div>
+  <div class="case-frame" id="case-frame"><p class="note" id="case-note" style="margin:0;padding:14px">Đang mở app Case CSKH…</p></div>
+</section>
 
 </div>
 
@@ -423,7 +431,7 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 const D = JSON.parse(document.getElementById('data').textContent);
 const USER = window.USER || {role:'admin',name:'',store:''};   // do function đăng nhập chèn vào; mở file HTML trực tiếp = quyền đầy đủ
 const ROLE_LBL = {admin:'Quản trị',manager:'Quản lý (Ops)',store:'Cửa hàng'};
-const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb'];
+const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb','case'];
 // Mục được xem: admin = tất cả; tài khoản khác = danh sách USER.tabs do admin chọn (mặc định: tất cả trừ Hàng hóa & SMS/ZNS)
 const ALLOWED_TABS = USER.role==='admin' ? ALL_TABS : (Array.isArray(USER.tabs) ? ['over',...USER.tabs] : ALL_TABS.filter(t=>!['hh','sms'].includes(t)));
 const HIDDEN_TABS = ALL_TABS.filter(t=>!ALLOWED_TABS.includes(t));
@@ -1465,11 +1473,18 @@ function renderSMS(){
 }
 
 /* ---------- wiring ---------- */
+// Tab Ticket khiếu nại: nhúng app Case CSKH qua /sso/case (server ký mã đăng nhập một lần). Mở file HTML trực tiếp (không có window.USER) thì chỉ hiện link.
+function renderCase(){
+  const box=el('case-frame'); if(!box||box.dataset.ready) return;
+  box.dataset.ready='1';
+  if(!window.USER){ box.innerHTML='<p class="note" style="margin:0;padding:14px">Mục này chỉ chạy trên report.cskh.matviet.vn (cần đăng nhập). Mở trực tiếp: <a href="https://case.cskh.matviet.vn" target="_blank" rel="noopener">case.cskh.matviet.vn</a></p>'; return; }
+  const f=document.createElement('iframe'); f.src='/sso/case'; f.title='Case CSKH'; f.setAttribute('allow','clipboard-write'); box.innerHTML=''; box.appendChild(f);
+}
 function render(){
   if (HIDDEN_TABS.includes(state.view)) state.view='over';
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
-  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,sms:renderSMS,xnbh:renderXNBH,fb:renderFB})[state.view]();
+  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,sms:renderSMS,xnbh:renderXNBH,fb:renderFB,case:renderCase})[state.view]();
   el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
 }

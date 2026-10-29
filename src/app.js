@@ -1,7 +1,7 @@
 const D = JSON.parse(document.getElementById('data').textContent);
 const USER = window.USER || {role:'admin',name:'',store:''};   // do function đăng nhập chèn vào; mở file HTML trực tiếp = quyền đầy đủ
 const ROLE_LBL = {admin:'Quản trị',manager:'Quản lý (Ops)',store:'Cửa hàng'};
-const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb'];
+const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb','case'];
 // Mục được xem: admin = tất cả; tài khoản khác = danh sách USER.tabs do admin chọn (mặc định: tất cả trừ Hàng hóa & SMS/ZNS)
 const ALLOWED_TABS = USER.role==='admin' ? ALL_TABS : (Array.isArray(USER.tabs) ? ['over',...USER.tabs] : ALL_TABS.filter(t=>!['hh','sms'].includes(t)));
 const HIDDEN_TABS = ALL_TABS.filter(t=>!ALLOWED_TABS.includes(t));
@@ -1043,11 +1043,18 @@ function renderSMS(){
 }
 
 /* ---------- wiring ---------- */
+// Tab Ticket khiếu nại: nhúng app Case CSKH qua /sso/case (server ký mã đăng nhập một lần). Mở file HTML trực tiếp (không có window.USER) thì chỉ hiện link.
+function renderCase(){
+  const box=el('case-frame'); if(!box||box.dataset.ready) return;
+  box.dataset.ready='1';
+  if(!window.USER){ box.innerHTML='<p class="note" style="margin:0;padding:14px">Mục này chỉ chạy trên report.cskh.matviet.vn (cần đăng nhập). Mở trực tiếp: <a href="https://case.cskh.matviet.vn" target="_blank" rel="noopener">case.cskh.matviet.vn</a></p>'; return; }
+  const f=document.createElement('iframe'); f.src='/sso/case'; f.title='Case CSKH'; f.setAttribute('allow','clipboard-write'); box.innerHTML=''; box.appendChild(f);
+}
 function render(){
   if (HIDDEN_TABS.includes(state.view)) state.view='over';
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
-  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,sms:renderSMS,xnbh:renderXNBH,fb:renderFB})[state.view]();
+  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,sms:renderSMS,xnbh:renderXNBH,fb:renderFB,case:renderCase})[state.view]();
   el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
 }

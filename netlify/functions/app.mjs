@@ -15,7 +15,13 @@ const SEED_ADMIN = { email: "truc.to@matkinh.com.vn", name: "Trúc Tô", role: "
   salt: "6b319a8229e599022242d0e86ca48fd2", hash: "d7c50d5c218e8e1caf9a5fb6d1e4887bb75db05ccbd9122a592bbdd2c61161b9" };
 const ROLES = { admin: "Quản trị", manager: "Quản lý (Ops)", store: "Cửa hàng" };
 // Các mục báo cáo (tab). Admin luôn xem tất cả; tài khoản khác xem đúng các mục admin đã chọn (user.tabs); chưa chọn = mặc định bên dưới.
-const TABS = [["over", "Tổng quan"], ["seg", "Phân tích KH 12M"], ["ttv", "Thẻ thành viên"], ["sn", "Sinh nhật KH"], ["km", "CTKM"], ["awo", "CTKM AWO tại CH"], ["hh", "Hàng hóa"], ["sms", "SMS / ZNS"], ["xnbh", "XNBH"], ["fb", "Phản hồi KH"]];
+const TABS = [["over", "Tổng quan"], ["seg", "Phân tích KH 12M"], ["ttv", "Thẻ thành viên"], ["sn", "Sinh nhật KH"], ["km", "CTKM"], ["awo", "CTKM AWO tại CH"], ["hh", "Hàng hóa"], ["sms", "SMS / ZNS"], ["xnbh", "XNBH"], ["fb", "Phản hồi KH"], ["case", "Ticket khiếu nại"]];
+// Tab "Ticket khiếu nại" nhúng app Case CSKH (site riêng, backend n8n) và đăng nhập một lần:
+//   GET /sso/case  → ký mã 5 phút cho người đang đăng nhập, chuyển tới CASE_URL/#sso=<mã>&embed=1
+//   POST /sso/verify {token} → n8n gọi về để xác minh mã, nhận {email,name,role,store,caseRole}
+const CASE_URL = "https://case.cskh.matviet.vn";
+const CASE_ROLES = { "": "Tự động theo quyền", CS: "CS (phòng CRM)", SM: "SM cửa hàng", AM: "Quản lý vùng (AM)", HR: "HR", LEAD: "Trưởng nhóm DVKH", QL: "Quản lý (admin)" };
+const caseRoleOf = u => u.caseRole && CASE_ROLES[u.caseRole] ? u.caseRole : (u.role === "admin" ? "QL" : u.role === "store" ? "SM" : "AM");
 const TAB_KEYS = TABS.map(t => t[0]), TAB_NAME = Object.fromEntries(TABS);
 const DEFAULT_TABS = TAB_KEYS.filter(k => !["hh", "sms"].includes(k));
 const userTabs = u => u.role === "admin" ? TAB_KEYS : ["over", ...(Array.isArray(u.tabs) ? u.tabs : DEFAULT_TABS).filter(k => k !== "over" && TAB_KEYS.includes(k))];
@@ -53,9 +59,9 @@ async function verify(t) {
 const cookies = req => Object.fromEntries((req.headers.get("cookie") || "").split(/;\s*/).filter(Boolean).map(c => { const i = c.indexOf("="); return [c.slice(0, i), decodeURIComponent(c.slice(i + 1))]; }));
 const setCookie = v => `${COOKIE}=${v}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${v ? TTL : 0}`;
 async function currentUser(req) {
-  const p = await verify(cookies(req)[COOKIE]); if (!p) return null;
+  const p = await verify(cookies(req)[COOKIE]); if (!p || p.t) return null;            // p.t = mã SSO, không phải phiên
   const u = (await loadUsers()).find(x => x.email === p.e); if (!u) return null;       // tài khoản đã bị xoá
-  return { email: u.email, name: u.name, role: u.role, store: u.store || "", tabs: userTabs(u) };
+  return { email: u.email, name: u.name, role: u.role, store: u.store || "", tabs: userTabs(u), caseRole: caseRoleOf(u) };
 }
 
 /* ---------- báo cáo ---------- */
@@ -160,7 +166,7 @@ function pageAdmin(u, users, q) {
   const tabsOf = x => userTabs(x);
   const tabsLbl = x => x.role === "admin" ? "Tất cả" : (tabsOf(x).length === TAB_KEYS.length ? "Tất cả" : tabsOf(x).map(k => TAB_NAME[k]).join(" · "));
   const rows = users.map(x => `<tr><td><b>${esc(x.name)}</b><br><span style="color:var(--fg3);font-size:12px">${esc(x.email)}</span></td><td><span class="tag ${x.role}">${ROLES[x.role] || x.role}</span></td><td>${esc(x.store || "—")}</td><td style="font-size:12px;color:var(--fg2)">${esc(tabsLbl(x))}</td><td style="white-space:nowrap;color:var(--fg3);font-size:12px">${(x.created || "").slice(0, 10)}</td>
-    <td style="text-align:right;white-space:nowrap"><button type="button" class="sm" style="background:#e7e9f0;color:var(--fg)" onclick='fill(${JSON.stringify({ name: x.name, email: x.email, role: x.role, store: x.store || "", tabs: tabsOf(x) }).replace(/</g, "\\u003c").replace(/'/g, "&#39;")})'>Sửa</button>
+    <td style="text-align:right;white-space:nowrap"><button type="button" class="sm" style="background:#e7e9f0;color:var(--fg)" onclick='fill(${JSON.stringify({ name: x.name, email: x.email, role: x.role, store: x.store || "", caseRole: x.caseRole || "", tabs: tabsOf(x) }).replace(/</g, "\\u003c").replace(/'/g, "&#39;")})'>Sửa</button>
     <form method="post" action="/admin" style="display:inline" onsubmit="return confirm('Xoá tài khoản ${esc(x.email)}?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="email" value="${esc(x.email)}"><button class="sm danger" ${x.email === u.email ? "disabled title=\"Không xoá chính mình\"" : ""}>Xoá</button></form></td></tr>`).join("");
   const tabBoxes = TABS.map(([k, n]) => `<label class="cb"><input type="checkbox" name="tabs" value="${k}" ${k === "over" ? "checked disabled" : DEFAULT_TABS.includes(k) ? "checked" : ""}> ${esc(n)}</label>`).join("");
   return layout("Tài khoản", nav(u) + band("Quản lý tài khoản xem báo cáo", `${users.length} tài khoản · Quản lý (Ops) xem mọi cửa hàng · Cửa hàng chỉ xem dữ liệu cửa hàng mình · mỗi tài khoản chọn được các mục báo cáo được xem`) + `<style>
@@ -173,6 +179,7 @@ function pageAdmin(u, users, q) {
 <div><label>Mật khẩu (từ 8 ký tự)</label><input name="password" type="text" minlength="8" autocomplete="off" placeholder="Bắt buộc khi tạo mới"></div>
 <div><label>Phân quyền</label><select name="role" id="role" onchange="roleUI()"><option value="manager">Quản lý (Ops) – xem mọi cửa hàng</option><option value="store">Cửa hàng – chỉ xem 1 cửa hàng</option><option value="admin">Quản trị – xem tất cả & quản lý tài khoản</option></select></div>
 <div id="storeWrap" style="display:none"><label>Cửa hàng</label><select name="store"><option value="">— chọn cửa hàng —</option>${stores.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("")}</select></div>
+<div><label>Vai trò bên Ticket khiếu nại</label><select name="caseRole">${Object.entries(CASE_ROLES).map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join("")}</select><p style="margin:4px 0 0;color:var(--fg3);font-size:12px">Tự động: Quản trị → Quản lý (admin), Quản lý (Ops) → AM, Cửa hàng → SM đúng cửa hàng. Nếu email này đã có tài khoản trong app Case thì giữ vai trò bên đó.</p></div>
 </div>
 <div id="tabsWrap"><label>Mục báo cáo được xem</label><div class="cbs">${tabBoxes}</div><p style="margin:6px 0 0;color:var(--fg3);font-size:12px">Tổng quan luôn được xem. Khối “Nhận định &amp; đề xuất của CSKH” ở tab Phản hồi KH chỉ hiện với Quản trị.</p></div>
 <div class="row"><button class="y" type="submit">Lưu tài khoản</button><button type="button" class="sm" style="background:#e7e9f0;color:var(--fg)" onclick="resetForm()">Làm mới form</button></div></form>
@@ -182,7 +189,7 @@ function pageAdmin(u, users, q) {
 const F=document.getElementById('f');
 function roleUI(){const r=F.elements.role.value;document.getElementById('storeWrap').style.display=r==='store'?'block':'none';document.getElementById('tabsWrap').style.display=r==='admin'?'none':'block';}
 function setTabs(t){F.querySelectorAll('input[name=tabs]').forEach(c=>{if(!c.disabled)c.checked=t.includes(c.value);});}
-function fill(x){const E=F.elements;E.name.value=x.name;E.email.value=x.email;E.password.value='';E.role.value=x.role;E.store.value=x.store;setTabs(x.tabs);roleUI();document.getElementById('formTitle').textContent='Đang sửa: '+x.email;F.scrollIntoView({behavior:'smooth',block:'start'});E.name.focus();}
+function fill(x){const E=F.elements;E.name.value=x.name;E.email.value=x.email;E.password.value='';E.role.value=x.role;E.store.value=x.store;E.caseRole.value=x.caseRole||'';setTabs(x.tabs);roleUI();document.getElementById('formTitle').textContent='Đang sửa: '+x.email;F.scrollIntoView({behavior:'smooth',block:'start'});E.name.focus();}
 function resetForm(){F.reset();setTabs(${JSON.stringify(DEFAULT_TABS)});roleUI();document.getElementById('formTitle').textContent='Tạo mới / cập nhật';}
 roleUI();
 </script>`, true);
@@ -191,6 +198,7 @@ roleUI();
 /* ---------- router ---------- */
 const html = (b, status = 200, h = {}) => new Response(b, { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", ...h } });
 const redirect = (loc, h = {}) => new Response(null, { status: 303, headers: { Location: loc, "Cache-Control": "no-store", ...h } });
+const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
 const back = (p, k, m) => redirect(`${p}?${k}=${encodeURIComponent(m)}`);
 
 export default async (req) => {
@@ -209,7 +217,23 @@ export default async (req) => {
     return user ? redirect("/") : html(pageLogin(url.searchParams));
   }
   if (p === "/logout") return redirect("/login", { "Set-Cookie": setCookie("") });
+  if (p === "/sso/verify") {   // n8n gọi về xác minh mã SSO (không cần cookie)
+    if (req.method !== "POST") return json({ ok: false, error: "POST {token}" }, 405);
+    let tok = ""; try { tok = String((await req.json()).token || ""); } catch { }
+    const s = await verify(tok);
+    if (!s || s.t !== "sso") return json({ ok: false, error: "Mã không hợp lệ hoặc đã hết hạn" }, 401);
+    const u = (await loadUsers()).find(x => x.email === s.e);
+    if (!u) return json({ ok: false, error: "Tài khoản không còn" }, 401);
+    if (!userTabs(u).includes("case")) return json({ ok: false, error: "Tài khoản không được xem mục Ticket" }, 403);
+    return json({ ok: true, user: { email: u.email, name: u.name, role: u.role, store: u.store || "", storeCode: (u.store || "").slice(0, 3), caseRole: caseRoleOf(u) } });
+  }
   if (!user) return redirect("/login");
+  if (p === "/sso/case") {     // mở app Case CSKH với mã đăng nhập một lần (dùng trong iframe tab Ticket hoặc mở tab mới)
+    if (!user.tabs.includes("case")) return redirect("/");
+    const tok = await sign({ t: "sso", e: user.email, x: Math.floor(Date.now() / 1000) + 300 });
+    const embed = url.searchParams.get("embed") === "0" ? "" : "&embed=1";
+    return redirect(`${CASE_URL}/#sso=${encodeURIComponent(tok)}${embed}`);
+  }
 
   if (p === "/password") {
     if (req.method === "POST") {
@@ -241,7 +265,8 @@ export default async (req) => {
         else if (pw && pw.length < 8) return back("/admin", "err", "Mật khẩu mới phải từ 8 ký tự.");
         if (u.email === user.email && role !== "admin") return back("/admin", "err", "Không tự hạ quyền quản trị của chính mình.");
         const tabs = role === "admin" ? [] : ["over", ...f.getAll("tabs").map(String).filter(k => k !== "over" && TAB_KEYS.includes(k))];
-        Object.assign(u, { name, role, store: role === "store" ? store : "", tabs });
+        const caseRole = String(f.get("caseRole") || ""); if (caseRole && !CASE_ROLES[caseRole]) return back("/admin", "err", "Vai trò bên Ticket không hợp lệ.");
+        Object.assign(u, { name, role, store: role === "store" ? store : "", tabs, caseRole });
         if (pw) { u.salt = crypto.randomBytes(16).toString("hex"); u.hash = hashPw(pw, u.salt); u.pwChanged = true; }
         await saveUsers(users);
         const seen = role === "admin" ? "tất cả" : tabs.map(k => TAB_NAME[k]).join(", ");
