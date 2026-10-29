@@ -14,6 +14,11 @@ import { fileURLToPath } from "node:url";
 const SEED_ADMIN = { email: "truc.to@matkinh.com.vn", name: "Trúc Tô", role: "admin", store: "",
   salt: "6b319a8229e599022242d0e86ca48fd2", hash: "d7c50d5c218e8e1caf9a5fb6d1e4887bb75db05ccbd9122a592bbdd2c61161b9" };
 const ROLES = { admin: "Quản trị", manager: "Quản lý (Ops)", store: "Cửa hàng" };
+// Các mục báo cáo (tab). Admin luôn xem tất cả; tài khoản khác xem đúng các mục admin đã chọn (user.tabs); chưa chọn = mặc định bên dưới.
+const TABS = [["over", "Tổng quan"], ["seg", "Phân tích KH 12M"], ["ttv", "Thẻ thành viên"], ["sn", "Sinh nhật KH"], ["km", "CTKM"], ["awo", "CTKM AWO tại CH"], ["hh", "Hàng hóa"], ["sms", "SMS / ZNS"], ["xnbh", "XNBH"], ["fb", "Phản hồi KH"]];
+const TAB_KEYS = TABS.map(t => t[0]), TAB_NAME = Object.fromEntries(TABS);
+const DEFAULT_TABS = TAB_KEYS.filter(k => !["hh", "sms"].includes(k));
+const userTabs = u => u.role === "admin" ? TAB_KEYS : ["over", ...(Array.isArray(u.tabs) ? u.tabs : DEFAULT_TABS).filter(k => k !== "over" && TAB_KEYS.includes(k))];
 const COOKIE = "cskh_s", TTL = 7 * 24 * 3600;
 const SYSTEM_ONLY = ["seg_demo_gt", "seg_demo_age", "ttv_gt", "ttv_age", "ttv_seg", "sn_gt", "sn_age", "sn_nguon", "sn_voucher", "sn_am", "tot_month"];
 const KHO_LISTS = ["seg_month", "seg_store", "ttv_month", "ttv_store", "sn_month", "sn_store", "stores"];
@@ -50,7 +55,7 @@ const setCookie = v => `${COOKIE}=${v}; Path=/; HttpOnly; Secure; SameSite=Lax; 
 async function currentUser(req) {
   const p = await verify(cookies(req)[COOKIE]); if (!p) return null;
   const u = (await loadUsers()).find(x => x.email === p.e); if (!u) return null;       // tài khoản đã bị xoá
-  return { email: u.email, name: u.name, role: u.role, store: u.store || "" };
+  return { email: u.email, name: u.name, role: u.role, store: u.store || "", tabs: userTabs(u) };
 }
 
 /* ---------- báo cáo ---------- */
@@ -66,13 +71,18 @@ function loadReport() {
   const p = reportPath(), st = fs.statSync(p);
   if (st.mtimeMs !== RPT.mtime) {
     const html = fs.readFileSync(p, "utf8"); const i = html.indexOf(OPEN); const j = html.indexOf("</script>", i);
-    RPT = { mtime: st.mtimeMs, pre: html.slice(0, i), json: html.slice(i + OPEN.length, j), tail: html.slice(j) }; FCACHE = new Map();
+    // Khối "Nhận định & đề xuất của CSKH" (tab Phản hồi KH) chỉ dành cho admin: cắt hẳn khỏi HTML gửi cho tài khoản khác
+    const cut = s => s.replace(/<details class="insight" id="fb-insight"[\s\S]*?<\/details>/, "");
+    const pre = html.slice(0, i), tail = html.slice(j);
+    RPT = { mtime: st.mtimeMs, pre, json: html.slice(i + OPEN.length, j), tail, preNA: cut(pre), tailNA: cut(tail) }; FCACHE = new Map();
   }
   return RPT;
 }
 function filterData(D, user) {
   if (user.role === "admin") return D;
-  delete D.hh; delete D.sms;
+  const t = new Set(user.tabs || DEFAULT_TABS);
+  if (!t.has("hh")) delete D.hh; if (!t.has("sms")) delete D.sms; if (!t.has("xnbh")) delete D.xnbh; if (!t.has("fb")) delete D.fb;
+  if (!t.has("km") && !t.has("awo")) delete D.ctkm;
   if (user.role !== "store") return D;
   const kho = user.store, code = kho.slice(0, 3);
   for (const k of KHO_LISTS) if (Array.isArray(D[k])) D[k] = D[k].filter(r => r.kho === kho);
@@ -86,7 +96,7 @@ function filterData(D, user) {
 }
 function reportJson(user) {
   const R = loadReport(); if (user.role === "admin") return R.json;
-  const key = user.role + "|" + user.store; if (FCACHE.has(key)) return FCACHE.get(key);
+  const key = user.role + "|" + user.store + "|" + (user.tabs || []).join(","); if (FCACHE.has(key)) return FCACHE.get(key);
   const out = JSON.stringify(filterData(JSON.parse(R.json), user)).replace(/<\/script/g, "<\\/script");
   if (FCACHE.size > 60) FCACHE.clear(); FCACHE.set(key, out); return out;
 }
@@ -97,7 +107,8 @@ function storeList() {
 function pageReport(req, user) {
   const R = loadReport();
   const userTag = `<script>window.USER=${JSON.stringify(user).replace(/</g, "\\u003c")};</script>\n`;
-  const html = R.pre + userTag + OPEN + reportJson(user) + R.tail;
+  const adm = user.role === "admin";
+  const html = (adm ? R.pre : R.preNA) + userTag + OPEN + reportJson(user) + (adm ? R.tail : R.tailNA);
   const gz = /\bgzip\b/.test(req.headers.get("accept-encoding") || "");
   const body = gz ? zlib.gzipSync(Buffer.from(html, "utf8"), { level: 6 }) : Buffer.from(html, "utf8");
   return new Response(body, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", ...(gz ? { "Content-Encoding": "gzip" } : {}), "Cache-Control": "private, no-store", "Vary": "Accept-Encoding" } });
@@ -146,19 +157,35 @@ const pagePassword = (u, q) => layout("Đổi mật khẩu", nav(u) + band("Đ�
 
 function pageAdmin(u, users, q) {
   const stores = storeList();
-  const rows = users.map(x => `<tr><td><b>${esc(x.name)}</b><br><span style="color:var(--fg3);font-size:12px">${esc(x.email)}</span></td><td><span class="tag ${x.role}">${ROLES[x.role] || x.role}</span></td><td>${esc(x.store || "—")}</td><td style="white-space:nowrap;color:var(--fg3);font-size:12px">${(x.created || "").slice(0, 10)}</td>
-    <td style="text-align:right;white-space:nowrap"><form method="post" action="/admin" style="display:inline" onsubmit="return confirm('Xoá tài khoản ${esc(x.email)}?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="email" value="${esc(x.email)}"><button class="sm danger" ${x.email === u.email ? "disabled title=\"Không xoá chính mình\"" : ""}>Xoá</button></form></td></tr>`).join("");
-  return layout("Tài khoản", nav(u) + band("Quản lý tài khoản xem báo cáo", `${users.length} tài khoản · Quản lý (Ops) xem mọi cửa hàng, không có tab Hàng hóa & SMS/ZNS · Cửa hàng chỉ xem dữ liệu cửa hàng mình`) + `<div class="card">${flash(q)}
-<h3 style="margin:0 0 4px">Tạo mới / cập nhật</h3><p style="margin:0;color:var(--fg3);font-size:12.5px">Nhập email đã có sẽ cập nhật tên, quyền, cửa hàng của tài khoản đó; để trống mật khẩu nếu không muốn đổi.</p>
-<form method="post" action="/admin"><input type="hidden" name="action" value="save"><div class="grid2">
+  const tabsOf = x => userTabs(x);
+  const tabsLbl = x => x.role === "admin" ? "Tất cả" : (tabsOf(x).length === TAB_KEYS.length ? "Tất cả" : tabsOf(x).map(k => TAB_NAME[k]).join(" · "));
+  const rows = users.map(x => `<tr><td><b>${esc(x.name)}</b><br><span style="color:var(--fg3);font-size:12px">${esc(x.email)}</span></td><td><span class="tag ${x.role}">${ROLES[x.role] || x.role}</span></td><td>${esc(x.store || "—")}</td><td style="font-size:12px;color:var(--fg2)">${esc(tabsLbl(x))}</td><td style="white-space:nowrap;color:var(--fg3);font-size:12px">${(x.created || "").slice(0, 10)}</td>
+    <td style="text-align:right;white-space:nowrap"><button type="button" class="sm" style="background:#e7e9f0;color:var(--fg)" onclick='fill(${JSON.stringify({ name: x.name, email: x.email, role: x.role, store: x.store || "", tabs: tabsOf(x) }).replace(/</g, "\\u003c").replace(/'/g, "&#39;")})'>Sửa</button>
+    <form method="post" action="/admin" style="display:inline" onsubmit="return confirm('Xoá tài khoản ${esc(x.email)}?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="email" value="${esc(x.email)}"><button class="sm danger" ${x.email === u.email ? "disabled title=\"Không xoá chính mình\"" : ""}>Xoá</button></form></td></tr>`).join("");
+  const tabBoxes = TABS.map(([k, n]) => `<label class="cb"><input type="checkbox" name="tabs" value="${k}" ${k === "over" ? "checked disabled" : DEFAULT_TABS.includes(k) ? "checked" : ""}> ${esc(n)}</label>`).join("");
+  return layout("Tài khoản", nav(u) + band("Quản lý tài khoản xem báo cáo", `${users.length} tài khoản · Quản lý (Ops) xem mọi cửa hàng · Cửa hàng chỉ xem dữ liệu cửa hàng mình · mỗi tài khoản chọn được các mục báo cáo được xem`) + `<style>
+.cbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px 12px;margin-top:6px}.cb{display:flex;gap:7px;align-items:center;font:inherit;font-size:13px;text-transform:none;letter-spacing:0;color:var(--fg);margin:0}.cb input{width:auto;margin:0}
+</style><div class="card">${flash(q)}
+<h3 style="margin:0 0 4px" id="formTitle">Tạo mới / cập nhật</h3><p style="margin:0;color:var(--fg3);font-size:12.5px">Nhập email đã có (hoặc bấm <b>Sửa</b> ở danh sách) sẽ cập nhật tên, quyền, cửa hàng, mục được xem của tài khoản đó; để trống mật khẩu nếu không muốn đổi.</p>
+<form method="post" action="/admin" id="f"><input type="hidden" name="action" value="save"><div class="grid2">
 <div><label>Tên</label><input name="name" required maxlength="60" placeholder="VD: Nguyễn Văn A – CH Đồng Khởi"></div>
 <div><label>Email (dùng để đăng nhập)</label><input name="email" type="email" required></div>
 <div><label>Mật khẩu (từ 8 ký tự)</label><input name="password" type="text" minlength="8" autocomplete="off" placeholder="Bắt buộc khi tạo mới"></div>
-<div><label>Phân quyền</label><select name="role" id="role" onchange="document.getElementById('storeWrap').style.display=this.value==='store'?'block':'none'"><option value="manager">Quản lý (Ops) – xem mọi cửa hàng</option><option value="store">Cửa hàng – chỉ xem 1 cửa hàng</option><option value="admin">Quản trị – xem tất cả & quản lý tài khoản</option></select></div>
+<div><label>Phân quyền</label><select name="role" id="role" onchange="roleUI()"><option value="manager">Quản lý (Ops) – xem mọi cửa hàng</option><option value="store">Cửa hàng – chỉ xem 1 cửa hàng</option><option value="admin">Quản trị – xem tất cả & quản lý tài khoản</option></select></div>
 <div id="storeWrap" style="display:none"><label>Cửa hàng</label><select name="store"><option value="">— chọn cửa hàng —</option>${stores.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join("")}</select></div>
-</div><div class="row"><button class="y" type="submit">Lưu tài khoản</button></div></form>
+</div>
+<div id="tabsWrap"><label>Mục báo cáo được xem</label><div class="cbs">${tabBoxes}</div><p style="margin:6px 0 0;color:var(--fg3);font-size:12px">Tổng quan luôn được xem. Khối “Nhận định &amp; đề xuất của CSKH” ở tab Phản hồi KH chỉ hiện với Quản trị.</p></div>
+<div class="row"><button class="y" type="submit">Lưu tài khoản</button><button type="button" class="sm" style="background:#e7e9f0;color:var(--fg)" onclick="resetForm()">Làm mới form</button></div></form>
 <h3 style="margin:26px 0 0">Danh sách tài khoản</h3>
-<table><tr><th>Tên / email</th><th>Quyền</th><th>Cửa hàng</th><th>Tạo</th><th></th></tr>${rows}</table></div>`, true);
+<table><tr><th>Tên / email</th><th>Quyền</th><th>Cửa hàng</th><th>Mục được xem</th><th>Tạo</th><th></th></tr>${rows}</table></div>
+<script>
+const F=document.getElementById('f');
+function roleUI(){const r=F.elements.role.value;document.getElementById('storeWrap').style.display=r==='store'?'block':'none';document.getElementById('tabsWrap').style.display=r==='admin'?'none':'block';}
+function setTabs(t){F.querySelectorAll('input[name=tabs]').forEach(c=>{if(!c.disabled)c.checked=t.includes(c.value);});}
+function fill(x){const E=F.elements;E.name.value=x.name;E.email.value=x.email;E.password.value='';E.role.value=x.role;E.store.value=x.store;setTabs(x.tabs);roleUI();document.getElementById('formTitle').textContent='Đang sửa: '+x.email;F.scrollIntoView({behavior:'smooth',block:'start'});E.name.focus();}
+function resetForm(){F.reset();setTabs(${JSON.stringify(DEFAULT_TABS)});roleUI();document.getElementById('formTitle').textContent='Tạo mới / cập nhật';}
+roleUI();
+</script>`, true);
 }
 
 /* ---------- router ---------- */
@@ -213,9 +240,12 @@ export default async (req) => {
         if (!u) { if (pw.length < 8) return back("/admin", "err", "Tạo mới cần mật khẩu từ 8 ký tự."); u = { email, created: new Date().toISOString() }; users.push(u); }
         else if (pw && pw.length < 8) return back("/admin", "err", "Mật khẩu mới phải từ 8 ký tự.");
         if (u.email === user.email && role !== "admin") return back("/admin", "err", "Không tự hạ quyền quản trị của chính mình.");
-        Object.assign(u, { name, role, store: role === "store" ? store : "" });
+        const tabs = role === "admin" ? [] : ["over", ...f.getAll("tabs").map(String).filter(k => k !== "over" && TAB_KEYS.includes(k))];
+        Object.assign(u, { name, role, store: role === "store" ? store : "", tabs });
         if (pw) { u.salt = crypto.randomBytes(16).toString("hex"); u.hash = hashPw(pw, u.salt); u.pwChanged = true; }
-        await saveUsers(users); return back("/admin", "ok", `Đã lưu tài khoản ${email} (${ROLES[role]}${store ? " · " + store : ""}).`);
+        await saveUsers(users);
+        const seen = role === "admin" ? "tất cả" : tabs.map(k => TAB_NAME[k]).join(", ");
+        return back("/admin", "ok", `Đã lưu tài khoản ${email} (${ROLES[role]}${store ? " · " + store : ""}) · xem: ${seen}.`);
       }
       return back("/admin", "err", "Thao tác không hợp lệ.");
     }

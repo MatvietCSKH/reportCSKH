@@ -389,7 +389,7 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 
 <!-- ============ PHẢN HỒI KH ============ -->
 <section class="view" id="v-fb">
-  <details class="insight" open><summary>Nhận định &amp; đề xuất của CSKH (dữ liệu đến 26/10/2026 · 74 phản hồi)</summary>
+  <details class="insight" id="fb-insight" open><summary>Nhận định &amp; đề xuất của CSKH (dữ liệu đến 26/10/2026 · 74 phản hồi)</summary>
     <ol>
       <li><b>Nguồn phản hồi đổi từ T10</b>: từ 19/10 tổng đài ghi nhận cả ý kiến KH trong cuộc gọi CSKH sau mua, nên T10 có 23 phản hồi (19 qua tổng đài, 4 Google) — con số tăng là do <b>chủ động hỏi</b>, không phải KH phàn nàn nhiều hơn; Google review giảm còn 4 ca (T7 có 23 ca, phần lớn Google). Hai nguồn này nên đọc tách nhau: Google = phản ánh công khai cần trả lời trong 24h; tổng đài = tín hiệu sớm để cửa hàng gọi lại KH.</li>
       <li><b>Vấn đề số 1 tháng 10 là đo mắt / sai độ</b> (8 ca): KH đeo kính mới vẫn choáng, chóng mặt, mỏi mắt, mờ một bên, được tư vấn giảm độ nhưng không hợp (Estella, Xuân Khánh, Sense ×2, BTA, Sala, 3T2). <i>Đề xuất:</i> KH đổi độ hoặc đổi loại tròng thì CH gọi lại sau 5–7 ngày; đo lại miễn phí khi KH báo khó chịu; ghi rõ độ cũ / độ mới và lý do thay đổi trên phiếu để KTV khác kiểm tra được.</li>
@@ -423,7 +423,10 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 const D = JSON.parse(document.getElementById('data').textContent);
 const USER = window.USER || {role:'admin',name:'',store:''};   // do function đăng nhập chèn vào; mở file HTML trực tiếp = quyền đầy đủ
 const ROLE_LBL = {admin:'Quản trị',manager:'Quản lý (Ops)',store:'Cửa hàng'};
-const HIDDEN_TABS = USER.role==='admin' ? [] : ['hh','sms'];
+const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb'];
+// Mục được xem: admin = tất cả; tài khoản khác = danh sách USER.tabs do admin chọn (mặc định: tất cả trừ Hàng hóa & SMS/ZNS)
+const ALLOWED_TABS = USER.role==='admin' ? ALL_TABS : (Array.isArray(USER.tabs) ? ['over',...USER.tabs] : ALL_TABS.filter(t=>!['hh','sms'].includes(t)));
+const HIDDEN_TABS = ALL_TABS.filter(t=>!ALLOWED_TABS.includes(t));
 const SEGS = ['1. KH mới','2. Quay lại ≤12T','3. KH cũ >12T','4. Buyer (khách lẻ)'];
 const SEG_LBL = {'1. KH mới':'KH mới','2. Quay lại ≤12T':'Quay lại ≤12T','3. KH cũ >12T':'KH cũ >12T','4. Buyer (khách lẻ)':'Buyer (khách lẻ)'};
 const CARDS = ['1. Diamond15','2. Platinum10','3. Gold7','4. Silver5','5. Member','6. Non-MB'];
@@ -1472,6 +1475,7 @@ function render(){
 }
 document.querySelectorAll('.tab').forEach(t=>{ if (HIDDEN_TABS.includes(t.dataset.v)) t.remove(); else t.addEventListener('click',()=>{state.view=t.dataset.v; render();}); });
 HIDDEN_TABS.forEach(v=>{ const s=el('v-'+v); if(s){ s.hidden=true; s.classList.remove('on'); } });
+if (USER.role!=='admin'){ const ins=el('fb-insight'); if(ins) ins.remove(); }   // Nhận định & đề xuất của CSKH: chỉ admin xem (server cũng đã cắt khỏi HTML)
 (function userbar(){ const u=el('userbar'); if(!u||!window.USER) return; u.innerHTML = `<span class="who"><b>${USER.name||USER.email||''}</b> · ${ROLE_LBL[USER.role]||USER.role}${USER.store?' · '+USER.store:''}</span><span class="acts">`+(USER.role==='admin'?'<a href="/admin">Tài khoản</a>':'')+'<a class="ghost" href="/password">Đổi mật khẩu</a><a class="ghost" href="/logout">Đăng xuất</a></span>'; })();
 const YEARS=[...new Set(D.meta.months.map(m=>m.slice(0,4)))];
 el('fYear').innerHTML=YEARS.map(y=>`<option value="${y}">${y}</option>`).join('');

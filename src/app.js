@@ -1,7 +1,10 @@
 const D = JSON.parse(document.getElementById('data').textContent);
 const USER = window.USER || {role:'admin',name:'',store:''};   // do function đăng nhập chèn vào; mở file HTML trực tiếp = quyền đầy đủ
 const ROLE_LBL = {admin:'Quản trị',manager:'Quản lý (Ops)',store:'Cửa hàng'};
-const HIDDEN_TABS = USER.role==='admin' ? [] : ['hh','sms'];
+const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb'];
+// Mục được xem: admin = tất cả; tài khoản khác = danh sách USER.tabs do admin chọn (mặc định: tất cả trừ Hàng hóa & SMS/ZNS)
+const ALLOWED_TABS = USER.role==='admin' ? ALL_TABS : (Array.isArray(USER.tabs) ? ['over',...USER.tabs] : ALL_TABS.filter(t=>!['hh','sms'].includes(t)));
+const HIDDEN_TABS = ALL_TABS.filter(t=>!ALLOWED_TABS.includes(t));
 const SEGS = ['1. KH mới','2. Quay lại ≤12T','3. KH cũ >12T','4. Buyer (khách lẻ)'];
 const SEG_LBL = {'1. KH mới':'KH mới','2. Quay lại ≤12T':'Quay lại ≤12T','3. KH cũ >12T':'KH cũ >12T','4. Buyer (khách lẻ)':'Buyer (khách lẻ)'};
 const CARDS = ['1. Diamond15','2. Platinum10','3. Gold7','4. Silver5','5. Member','6. Non-MB'];
@@ -1050,6 +1053,7 @@ function render(){
 }
 document.querySelectorAll('.tab').forEach(t=>{ if (HIDDEN_TABS.includes(t.dataset.v)) t.remove(); else t.addEventListener('click',()=>{state.view=t.dataset.v; render();}); });
 HIDDEN_TABS.forEach(v=>{ const s=el('v-'+v); if(s){ s.hidden=true; s.classList.remove('on'); } });
+if (USER.role!=='admin'){ const ins=el('fb-insight'); if(ins) ins.remove(); }   // Nhận định & đề xuất của CSKH: chỉ admin xem (server cũng đã cắt khỏi HTML)
 (function userbar(){ const u=el('userbar'); if(!u||!window.USER) return; u.innerHTML = `<span class="who"><b>${USER.name||USER.email||''}</b> · ${ROLE_LBL[USER.role]||USER.role}${USER.store?' · '+USER.store:''}</span><span class="acts">`+(USER.role==='admin'?'<a href="/admin">Tài khoản</a>':'')+'<a class="ghost" href="/password">Đổi mật khẩu</a><a class="ghost" href="/logout">Đăng xuất</a></span>'; })();
 const YEARS=[...new Set(D.meta.months.map(m=>m.slice(0,4)))];
 el('fYear').innerHTML=YEARS.map(y=>`<option value="${y}">${y}</option>`).join('');
