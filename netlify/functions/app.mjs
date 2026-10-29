@@ -21,6 +21,9 @@ const TABS = [["over", "Tổng quan"], ["seg", "Phân tích KH 12M"], ["ttv", "T
 //   POST /sso/verify {token} → n8n gọi về để xác minh mã, nhận {email,name,role,store,caseRole}
 const CASE_URL = "https://case.cskh.matviet.vn";
 const CASE_ROLES = { "": "Tự động theo quyền", CS: "CS (phòng CRM)", SM: "SM cửa hàng", AM: "Quản lý vùng (AM)", HR: "HR", LEAD: "Trưởng nhóm DVKH", QL: "Quản lý (admin)" };
+// Thống kê ticket (tab Ticket khiếu nại): GET /api/case-stats → gọi n8n action "stats" (ticket đã che SĐT / tên / nội dung KH) → gom theo tháng × cửa hàng, lọc theo quyền.
+//   URL webhook + API key do Quản trị dán một lần ở /admin (mục "Kết nối app Case"), lưu Blobs khoá "case-api"; không ghi vào code / biến môi trường.
+const CASE_API_URL = "https://automation.matviet.com.vn/webhook/cskh-case";
 const caseRoleOf = u => u.caseRole && CASE_ROLES[u.caseRole] ? u.caseRole : (u.role === "admin" ? "QL" : u.role === "store" ? "SM" : "AM");
 const TAB_KEYS = TABS.map(t => t[0]), TAB_NAME = Object.fromEntries(TABS);
 const DEFAULT_TABS = TAB_KEYS.filter(k => !["hh", "sms"].includes(k));
@@ -40,6 +43,7 @@ async function loadUsers() {
   return u;
 }
 const saveUsers = u => blobs().setJSON("users", u);
+const loadCaseApi = async () => { const v = await blobs().get("case-api", { type: "json" }); return v && typeof v === "object" && v.key ? v : null; };
 async function secret() {
   const s = blobs(); let v = await s.get("secret");
   if (!v) { v = crypto.randomBytes(32).toString("hex"); await s.set("secret", v); }
@@ -120,6 +124,40 @@ function pageReport(req, user) {
   return new Response(body, { status: 200, headers: { "Content-Type": "text/html; charset=utf-8", ...(gz ? { "Content-Encoding": "gzip" } : {}), "Cache-Control": "private, no-store", "Vary": "Accept-Encoding" } });
 }
 
+/* ---------- thống kê ticket (đọc sống từ n8n) ---------- */
+async function callCaseApi(url, key) {       // action "stats" của node "Xử lý API": trả {ok, asOf, stores, sla, rows[]} — rows KHÔNG có SĐT / tên / nội dung
+  let r, j = null;
+  try { r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "x-api-key": key }, body: JSON.stringify({ action: "stats", actor: { name: "Báo cáo CSKH", role: "QL" } }), signal: AbortSignal.timeout(15000) }); }
+  catch (e) { throw new Error("Không gọi được n8n: " + (e.message || e)); }
+  try { j = await r.json(); } catch { }
+  if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || ("n8n trả lỗi HTTP " + r.status));
+  return j;
+}
+let CSTAT = { at: 0, data: null };            // cache 60 giây trong tiến trình function (bản đầy đủ dùng chung, lọc theo quyền lúc trả)
+async function caseRows() {
+  if (CSTAT.data && Date.now() - CSTAT.at < 60e3) return CSTAT.data;
+  const api = await loadCaseApi();
+  if (!api) throw new Error("Chưa cấu hình kết nối n8n cho thống kê ticket (Quản trị → Tài khoản → Kết nối app Case).");
+  const d = await callCaseApi(api.url || CASE_API_URL, api.key);
+  CSTAT = { at: Date.now(), data: d }; return d;
+}
+function caseAgg(rows, code) {               // gom theo tháng tạo × cửa hàng; code = mã cửa hàng (3 số) khi là tài khoản cửa hàng
+  const o = {};
+  for (const t of rows) {
+    const st = String(t.store || ""); if (code && st !== code) continue;
+    const m = String(t.createdAt || "").slice(0, 7); if (!/^\d{4}-\d{2}$/.test(m)) continue;
+    const g = o[m + "|" + st] || (o[m + "|" + st] = { m, store: st, n: 0, open: 0, over: 0, overAck: 0, overContact: 0, overClose: 0, closed: 0, closeN: 0, closeH: 0, satN: 0, sat: 0, ackN: 0, ackOn: 0, ret: 0, g: {}, s: {}, gs: {} });
+    g.n++;
+    if (t.status === "Đã đóng") { g.closed++; if (typeof t.closeHours === "number") { g.closeN++; g.closeH += t.closeHours; } if (t.satisfied) { g.satN++; if (t.satisfied === "Có") g.sat++; } }
+    else { g.open++; if (t.overdue) { g.over++; if (t.overdue === "ack") g.overAck++; else if (t.overdue === "contact") g.overContact++; else g.overClose++; } }
+    if (t.ackAt) { g.ackN++; if (!t.dueAck || Date.parse(t.ackAt) <= Date.parse(t.dueAck)) g.ackOn++; }
+    g.ret += +t.returns || 0;
+    const gr = /^[A-E]$/.test(t.group) ? t.group : "?"; g.g[gr] = (g.g[gr] || 0) + 1;
+    const sv = [1, 2, 3].includes(+t.sev) ? String(+t.sev) : "?"; g.s[sv] = (g.s[sv] || 0) + 1; g.gs[gr + sv] = (g.gs[gr + sv] || 0) + 1;
+  }
+  return Object.values(o).sort((a, b) => a.m.localeCompare(b.m) || a.store.localeCompare(b.store));
+}
+
 /* ---------- giao diện các trang phụ ---------- */
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const layout = (title, body, wide = false) => `<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>${esc(title)} · Báo cáo CSKH Mắt Việt</title>
@@ -161,7 +199,7 @@ const pagePassword = (u, q) => layout("Đổi mật khẩu", nav(u) + band("Đ�
 <label>Nhập lại mật khẩu mới</label><input name="new2" type="password" autocomplete="new-password" minlength="8" required>
 <div class="row"><button class="y" type="submit">Lưu mật khẩu</button><a class="btn" href="/" style="background:#e7e9f0;color:var(--fg)">Huỷ</a></div></form></div>`);
 
-function pageAdmin(u, users, q) {
+function pageAdmin(u, users, q, api) {
   const stores = storeList();
   const tabsOf = x => userTabs(x);
   const tabsLbl = x => x.role === "admin" ? "Tất cả" : (tabsOf(x).length === TAB_KEYS.length ? "Tất cả" : tabsOf(x).map(k => TAB_NAME[k]).join(" · "));
@@ -184,7 +222,13 @@ function pageAdmin(u, users, q) {
 <div id="tabsWrap"><label>Mục báo cáo được xem</label><div class="cbs">${tabBoxes}</div><p style="margin:6px 0 0;color:var(--fg3);font-size:12px">Tổng quan luôn được xem. Khối “Nhận định &amp; đề xuất của CSKH” ở tab Phản hồi KH chỉ hiện với Quản trị.</p></div>
 <div class="row"><button class="y" type="submit">Lưu tài khoản</button><button type="button" class="sm" style="background:#e7e9f0;color:var(--fg)" onclick="resetForm()">Làm mới form</button></div></form>
 <h3 style="margin:26px 0 0">Danh sách tài khoản</h3>
-<table><tr><th>Tên / email</th><th>Quyền</th><th>Cửa hàng</th><th>Mục được xem</th><th>Tạo</th><th></th></tr>${rows}</table></div>
+<table><tr><th>Tên / email</th><th>Quyền</th><th>Cửa hàng</th><th>Mục được xem</th><th>Tạo</th><th></th></tr>${rows}</table>
+<h3 style="margin:30px 0 4px">Kết nối app Case (thống kê ticket)</h3>
+<p style="margin:0;color:var(--fg3);font-size:12.5px">Tab <b>Ticket khiếu nại</b> đọc số liệu ticket trực tiếp từ n8n mỗi lần mở trang (đã che SĐT / tên KH). Dán URL webhook và API key của app Case (ô “API key” trong Cài đặt của app) — chỉ cần một lần; key lưu trong Netlify Blobs, không hiện lại. Trạng thái: <b>${api ? `đã lưu · cập nhật ${esc((api.updated || "").slice(0, 16).replace("T", " "))} bởi ${esc(api.by || "")}` : "chưa cấu hình"}</b>.</p>
+<form method="post" action="/admin"><input type="hidden" name="action" value="caseapi"><div class="grid2">
+<div><label>URL webhook n8n</label><input name="url" value="${esc(api ? api.url || CASE_API_URL : CASE_API_URL)}" required></div>
+<div><label>API key (header x-api-key)</label><input name="key" type="password" autocomplete="new-password" placeholder="${api ? "Đã lưu — chỉ nhập khi muốn thay" : "Dán API key của app Case"}" ${api ? "" : "required"}></div>
+</div><div class="row"><button class="y" type="submit">Lưu &amp; thử kết nối</button></div></form></div>
 <script>
 const F=document.getElementById('f');
 function roleUI(){const r=F.elements.role.value;document.getElementById('storeWrap').style.display=r==='store'?'block':'none';document.getElementById('tabsWrap').style.display=r==='admin'?'none':'block';}
@@ -228,6 +272,14 @@ export default async (req) => {
     return json({ ok: true, user: { email: u.email, name: u.name, role: u.role, store: u.store || "", storeCode: (u.store || "").slice(0, 3), caseRole: caseRoleOf(u) } });
   }
   if (!user) return redirect("/login");
+  if (p === "/api/case-stats") {   // tab Ticket khiếu nại: số liệu ticket gom theo tháng × cửa hàng, cửa hàng chỉ nhận đúng cửa hàng mình
+    if (!user.tabs.includes("case")) return json({ ok: false, error: "Tài khoản không được xem mục Ticket khiếu nại" }, 403);
+    try {
+      const d = await caseRows(); const code = user.role === "store" ? user.store.slice(0, 3) : "";
+      const stores = {}; for (const s of d.stores || []) if (s && s.code && (!code || String(s.code) === code)) stores[String(s.code)] = s.name || String(s.code);
+      return json({ ok: true, asOf: d.asOf || new Date().toISOString(), scope: code || "all", sla: d.sla || null, stores, rows: caseAgg(d.rows || [], code) });
+    } catch (e) { return json({ ok: false, error: e.message || String(e) }, 502); }
+  }
   if (p === "/sso/case") {     // mở app Case CSKH với mã đăng nhập một lần (dùng trong iframe tab Ticket hoặc mở tab mới)
     if (!user.tabs.includes("case")) return redirect("/");
     const tok = await sign({ t: "sso", e: user.email, x: Math.floor(Date.now() / 1000) + 300 });
@@ -272,9 +324,18 @@ export default async (req) => {
         const seen = role === "admin" ? "tất cả" : tabs.map(k => TAB_NAME[k]).join(", ");
         return back("/admin", "ok", `Đã lưu tài khoản ${email} (${ROLES[role]}${store ? " · " + store : ""}) · xem: ${seen}.`);
       }
+      if (act === "caseapi") {   // lưu URL + API key n8n cho thống kê ticket; thử gọi trước khi lưu
+        const cur = await loadCaseApi();
+        const u2 = String(f.get("url") || "").trim() || CASE_API_URL, k2 = String(f.get("key") || "").trim() || (cur && cur.key) || "";
+        if (!/^https:\/\/\S+$/.test(u2)) return back("/admin", "err", "URL webhook phải bắt đầu bằng https://");
+        if (!k2) return back("/admin", "err", "Thiếu API key.");
+        let t; try { t = await callCaseApi(u2, k2); } catch (e) { return back("/admin", "err", "Thử kết nối thất bại: " + (e.message || e)); }
+        await blobs().setJSON("case-api", { url: u2, key: k2, updated: new Date().toISOString(), by: user.email }); CSTAT = { at: 0, data: null };
+        return back("/admin", "ok", `Đã lưu kết nối n8n · đọc được ${(t.rows || []).length} ticket.`);
+      }
       return back("/admin", "err", "Thao tác không hợp lệ.");
     }
-    return html(pageAdmin(user, users, url.searchParams));
+    return html(pageAdmin(user, users, url.searchParams, await loadCaseApi()));
   }
   if (p === "/" || p === "/index.html") return pageReport(req, user);
   return redirect("/");

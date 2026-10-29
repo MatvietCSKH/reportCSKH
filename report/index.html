@@ -418,6 +418,16 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 
 <!-- ============ TICKET KHIẾU NẠI (app Case CSKH nhúng, đăng nhập một lần) ============ -->
 <section class="view" id="v-case">
+  <div id="case-stats">
+    <h2>Thống kê ticket <small id="case-asof"></small></h2>
+    <div class="kpis" id="case-kpis"></div>
+    <div class="warn" id="case-warn" hidden></div>
+    <div class="grid" id="case-grid">
+      <div class="card c8"><p class="ttl">Ticket theo tháng tạo</p><p class="note">Xếp chồng theo tình trạng hiện tại (đã đóng / đang mở trong hạn / quá hạn) · kỳ 1 tháng hiện 12 tháng gần nhất</p><div class="ch s"><canvas id="c-case-month"></canvas></div><div class="legend" id="lg-case-month"></div></div>
+      <div class="card c4"><p class="ttl">Nhóm vấn đề × mức độ</p><p class="note">Kỳ đang chọn · mức 3 = nghiêm trọng nhất</p><div class="ch s"><canvas id="c-case-group"></canvas></div><div class="legend" id="lg-case-group"></div></div>
+      <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Kỳ đang chọn · tình trạng và quá hạn tính đến lúc mở trang · <b>TG đóng TB</b> = từ lúc tạo ticket đến lúc đóng · không đưa SĐT / tên KH vào thống kê</p><div class="tw" id="t-case-store"></div></div>
+    </div>
+  </div>
   <div class="subbar" id="case-bar"><span class="note" style="margin:0">App <b>Case CSKH</b> (ticket khiếu nại) mở ngay tại đây với tài khoản đang đăng nhập.</span><a class="case-open" id="case-open" href="/sso/case?embed=0" target="_blank" rel="noopener">Mở trong tab mới ↗</a></div>
   <div class="case-frame" id="case-frame"><p class="note" id="case-note" style="margin:0;padding:14px">Đang mở app Case CSKH…</p></div>
 </section>
@@ -580,6 +590,8 @@ const LABELS = {
       color:(c)=>inkOn(bgOf(c)), font:{size:11,weight:'700'}, textAlign:'center',
       formatter:(v,c)=>{const t=c.dataset.data.reduce((a,b)=>a+(+b||0),0); return [fmtN(v), fmtP(v,t)];}}}),
   'c-xn-am':     () => ({datalabels:DL.bar(fP1)}),
+  'c-case-month':() => ({stackTotals:stackTot(fmtN), datalabels:DL.inside(fmtN,.15)}),
+  'c-case-group':() => ({stackTotals:stackTot(fmtN), datalabels:DL.inside(fmtN,.2)}),
   'c-xn-tier':   () => ({datalabels:DL.bar(fP1)}),
 };
 const ttB = {callbacks:{label:c=>` ${c.dataset.label}: ${fmtN(c.parsed.y)} tr`}};
@@ -1473,8 +1485,75 @@ function renderSMS(){
 }
 
 /* ---------- wiring ---------- */
-// Tab Ticket khiếu nại: nhúng app Case CSKH qua /sso/case (server ký mã đăng nhập một lần). Mở file HTML trực tiếp (không có window.USER) thì chỉ hiện link.
+// Tab Ticket khiếu nại: khối thống kê đọc sống từ n8n qua GET /api/case-stats (server gom theo tháng × cửa hàng; tài khoản cửa hàng chỉ nhận số của mình),
+// bên dưới nhúng app Case CSKH qua /sso/case (server ký mã đăng nhập một lần). Mở file HTML trực tiếp (không có window.USER) thì chỉ hiện link.
+let CASE=null, caseBusy=false;
+const CASE_GROUP = {A:'A. Con người',B:'B. Vi phạm quy định',C:'C. Kỹ thuật / sản phẩm',D:'D. Chính sách / quy trình',E:'E. Cơ sở vật chất / thông tin','?':'Chưa phân nhóm'};
+const curMonth = () => { const d=new Date(); return mkey(d.getFullYear(), d.getMonth()+1); };
+function caseRange(){   // như periodRange, nhưng MTD / YTD tính theo tháng hiện tại (ticket mới hơn dữ liệu BC21)
+  if (state.ptype==='mtd') return [curMonth(), curMonth()];
+  if (state.ptype==='ytd') return [curMonth().slice(0,4)+'-01', curMonth()];
+  return periodRange();
+}
+function caseMonths(rowsAll){  // kỳ 1 tháng → 12 tháng gần nhất kết thúc ở tháng đó; kỳ khác → các tháng trong kỳ (chặn ở tháng có ticket đầu tiên và tháng hiện tại)
+  const [f,t]=caseRange(), cur=curMonth();
+  const seq=(a,b)=>{ const o=[]; let y=+a.slice(0,4), m=+a.slice(5); while(mkey(y,m)<=b && o.length<240){ o.push(mkey(y,m)); if(++m>12){m=1;y++;} } return o; };
+  if (state.ptype==='month'||state.ptype==='mtd'){ let y=+t.slice(0,4), m=+t.slice(5)-11; if(m<1){m+=12;y--;} return seq(mkey(y,m), t); }
+  const first = rowsAll.length ? rowsAll.map(r=>r.m).sort()[0] : cur;
+  return seq(f<first?first:f, t>cur?cur:t);
+}
+const caseSum = rs => { const T={n:0,open:0,over:0,overAck:0,overContact:0,overClose:0,closed:0,closeN:0,closeH:0,satN:0,sat:0,ackN:0,ackOn:0,ret:0,g:{},s:{},gs:{}};
+  for(const r of rs){ for(const k in T){ if(k==='g'||k==='s'||k==='gs'){ for(const q in (r[k]||{})) T[k][q]=(T[k][q]||0)+r[k][q]; } else T[k]+=r[k]||0; } } return T; };
+const hrsLbl = h => h>=48 ? f1(h/24)+' ngày' : f1(h)+' giờ';
+function loadCase(force){
+  if (caseBusy) return; caseBusy=true; if(force) CASE=null;
+  el('case-kpis').innerHTML='<div class="kpi"><div class="l">Thống kê ticket</div><div class="v" style="font-size:16px">Đang đọc từ app Case (n8n)…</div></div>';
+  fetch('/api/case-stats',{credentials:'same-origin',cache:'no-store'}).then(r=>r.json()).then(j=>{ CASE = j&&j.ok ? j : {error:(j&&j.error)||'Không đọc được số liệu'}; })
+    .catch(e=>{ CASE={error:'Không gọi được /api/case-stats: '+(e.message||e)}; }).then(()=>{ caseBusy=false; if(state.view==='case') renderCaseStats(); });
+}
+function renderCaseStats(){
+  const wrap=el('case-stats'); if(!wrap) return;
+  if(!window.USER){ wrap.style.display='none'; return; }
+  if(!CASE){ loadCase(false); return; }
+  const warn=el('case-warn'), grid=el('case-grid');
+  if(CASE.error){ el('case-kpis').innerHTML=''; grid.style.display='none'; warn.hidden=false; warn.innerHTML='<b>Chưa đọc được thống kê ticket.</b> '+CASE.error+' <button class="chip" type="button" onclick="loadCase(true)">Thử lại</button>'; el('case-asof').textContent=''; return; }
+  grid.style.display=''; warn.hidden=true;
+  const asof=new Date(CASE.asOf); el('case-asof').innerHTML=`đọc từ app Case lúc ${asof.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})} ${asof.toLocaleDateString('vi-VN')} · <a href="#" onclick="loadCase(true);return false" style="color:var(--fg-2)">làm mới</a>`;
+  const code3 = CASE.scope==='all' && state.store ? state.store.slice(0,3) : '';     // Ops / Quản trị chọn cửa hàng ở bộ lọc → chỉ số của cửa hàng đó
+  const all = code3 ? CASE.rows.filter(r=>r.store===code3) : CASE.rows;
+  const [f,t]=caseRange(); const rows=all.filter(r=>r.m>=f&&r.m<=t); const T=caseSum(rows), ALL=caseSum(all);
+  const scope = CASE.scope!=='all' ? 'cửa hàng '+CASE.scope : code3 ? 'cửa hàng '+code3 : 'toàn hệ thống';
+  const avgH = T.closeN ? T.closeH/T.closeN : null;
+  el('case-kpis').innerHTML=[
+    kpi('Ticket tạo trong kỳ', fmtN(T.n), periodLabel()+' · '+scope, null, true),
+    kpi('Đang mở', fmtN(T.open), 'tạo trong kỳ, chưa đóng · toàn bộ đang mở (mọi kỳ): '+fmtN(ALL.open)),
+    kpi('Quá hạn', fmtN(T.over), T.over ? `${T.overAck} chờ SM xác nhận · ${T.overContact} chưa liên hệ KH · ${T.overClose} quá hạn đóng` : 'không có ticket quá hạn', T.over?cssv('--bad'):null),
+    kpi('Đã đóng', fmtN(T.closed), T.n ? fmtP(T.closed,T.n)+' số ticket trong kỳ' : '–'),
+    kpi('Thời gian đóng TB', avgH==null ? '–' : hrsLbl(avgH), avgH==null ? 'chưa có ticket đóng' : (avgH>=48 ? fmtN(avgH)+' giờ · ' : '')+fmtN(T.closeN)+' ticket đã đóng · từ lúc tạo đến lúc đóng'),
+    kpi('KH hài lòng sau xử lý', T.satN ? fmtP(T.sat,T.satN) : '–', T.satN ? fmtN(T.sat)+'/'+fmtN(T.satN)+' ticket đóng có ghi nhận' : 'chưa có ghi nhận'),
+  ].join('');
+  // chart theo tháng tạo (12 tháng / kỳ), xếp chồng theo tình trạng hiện tại
+  const ms=caseMonths(all); const NAVY=cssv('--s1'), TURQ=cssv('--s3'), CORAL=cssv('--s2'), YEL=cssv('--s4'), LB=cssv('--t3');
+  const byM = fn => ms.map(m=>fn(caseSum(all.filter(r=>r.m===m))));
+  mk('c-case-month',{type:'bar',data:{labels:ms.map(mLbl),datasets:[barDs('Đã đóng',byM(x=>x.closed),NAVY,{stack:'s',borderWidth:0}),barDs('Đang mở trong hạn',byM(x=>x.open-x.over),TURQ,{stack:'s',borderWidth:0}),barDs('Quá hạn',byM(x=>x.over),CORAL,{stack:'s',borderWidth:0})]},
+    options:{plugins:{tooltip:ttN},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}}}});
+  legend('lg-case-month',[['Đã đóng',NAVY],['Đang mở trong hạn',TURQ],['Quá hạn',CORAL]]);
+  // nhóm vấn đề × mức độ (kỳ đang chọn)
+  const gk=['A','B','C','D','E'].concat(T.g['?']?['?']:[]);
+  mk('c-case-group',{type:'bar',data:{labels:gk.map(k=>wrapLbl(CASE_GROUP[k],18)),datasets:[['1',LB],['2',YEL],['3',CORAL]].map(([sv,col])=>barDs('Mức '+sv,gk.map(k=>T.gs[k+sv]||0),col,{stack:'s',borderWidth:0,maxBarThickness:22}))},
+    options:{indexAxis:'y',plugins:{tooltip:ttNx},scales:{x:{stacked:true,beginAtZero:true,ticks:{precision:0}},y:{stacked:true,ticks:{font:{size:10.5}}}}}});
+  legend('lg-case-group',[['Mức 1',LB],['Mức 2',YEL],['Mức 3 (nghiêm trọng)',CORAL]]);
+  // bảng theo cửa hàng
+  const bs={}; rows.forEach(r=>{ (bs[r.store]=bs[r.store]||[]).push(r); });
+  const name = c => (CASE.stores||{})[c] ? `${c} · ${CASE.stores[c]}` : c;
+  const list=Object.entries(bs).map(([c,rs])=>[c,caseSum(rs)]).sort((a,b)=>b[1].n-a[1].n || b[1].over-a[1].over);
+  const cell=(x)=>x.closeN ? hrsLbl(x.closeH/x.closeN) : '–';
+  table('t-case-store',['Cửa hàng','Ticket','Đang mở','Quá hạn','Đã đóng','TG đóng TB','SM xác nhận đúng hạn','KH hài lòng','Mức 3','Nhóm A','Nhóm B','Trả về CH'],
+    list.map(([c,x])=>[`<span class="nm" style="min-width:200px">${name(c)}</span>`, fmtN(x.n), fmtN(x.open), x.over?`<span class="pill no">${fmtN(x.over)}</span>`:'0', fmtN(x.closed), cell(x), x.ackN?fmtP(x.ackOn,x.ackN):'–', x.satN?fmtP(x.sat,x.satN):'–', fmtN(x.s['3']||0), fmtN(x.g.A||0), fmtN(x.g.B||0), fmtN(x.ret)]),
+    list.length>1 ? ['Tổng', fmtN(T.n), fmtN(T.open), fmtN(T.over), fmtN(T.closed), cell(T), T.ackN?fmtP(T.ackOn,T.ackN):'–', T.satN?fmtP(T.sat,T.satN):'–', fmtN(T.s['3']||0), fmtN(T.g.A||0), fmtN(T.g.B||0), fmtN(T.ret)] : null);
+}
 function renderCase(){
+  renderCaseStats();
   const box=el('case-frame'); if(!box||box.dataset.ready) return;
   box.dataset.ready='1';
   if(!window.USER){ box.innerHTML='<p class="note" style="margin:0;padding:14px">Mục này chỉ chạy trên report.cskh.matviet.vn (cần đăng nhập). Mở trực tiếp: <a href="https://case.cskh.matviet.vn" target="_blank" rel="noopener">case.cskh.matviet.vn</a></p>'; return; }

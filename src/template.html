@@ -410,6 +410,16 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
 
 <!-- ============ TICKET KHIẾU NẠI (app Case CSKH nhúng, đăng nhập một lần) ============ -->
 <section class="view" id="v-case">
+  <div id="case-stats">
+    <h2>Thống kê ticket <small id="case-asof"></small></h2>
+    <div class="kpis" id="case-kpis"></div>
+    <div class="warn" id="case-warn" hidden></div>
+    <div class="grid" id="case-grid">
+      <div class="card c8"><p class="ttl">Ticket theo tháng tạo</p><p class="note">Xếp chồng theo tình trạng hiện tại (đã đóng / đang mở trong hạn / quá hạn) · kỳ 1 tháng hiện 12 tháng gần nhất</p><div class="ch s"><canvas id="c-case-month"></canvas></div><div class="legend" id="lg-case-month"></div></div>
+      <div class="card c4"><p class="ttl">Nhóm vấn đề × mức độ</p><p class="note">Kỳ đang chọn · mức 3 = nghiêm trọng nhất</p><div class="ch s"><canvas id="c-case-group"></canvas></div><div class="legend" id="lg-case-group"></div></div>
+      <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Kỳ đang chọn · tình trạng và quá hạn tính đến lúc mở trang · <b>TG đóng TB</b> = từ lúc tạo ticket đến lúc đóng · không đưa SĐT / tên KH vào thống kê</p><div class="tw" id="t-case-store"></div></div>
+    </div>
+  </div>
   <div class="subbar" id="case-bar"><span class="note" style="margin:0">App <b>Case CSKH</b> (ticket khiếu nại) mở ngay tại đây với tài khoản đang đăng nhập.</span><a class="case-open" id="case-open" href="/sso/case?embed=0" target="_blank" rel="noopener">Mở trong tab mới ↗</a></div>
   <div class="case-frame" id="case-frame"><p class="note" id="case-note" style="margin:0;padding:14px">Đang mở app Case CSKH…</p></div>
 </section>
