@@ -11,8 +11,8 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 
-const SEED_ADMIN = { email: "matvietdesignteam@gmail.com", name: "Quản trị CSKH", role: "admin", store: "",
-  salt: "1ed4e0839f919dd277c2a9d4f6046f7d", hash: "6b1797f73946a420003ff9b4b75df435cf842abc6be1505623bcc7c853152de0" };
+const SEED_ADMIN = { email: "truc.to@matkinh.com.vn", name: "Trúc Tô", role: "admin", store: "",
+  salt: "6b319a8229e599022242d0e86ca48fd2", hash: "d7c50d5c218e8e1caf9a5fb6d1e4887bb75db05ccbd9122a592bbdd2c61161b9" };
 const ROLES = { admin: "Quản trị", manager: "Quản lý (Ops)", store: "Cửa hàng" };
 const COOKIE = "cskh_s", TTL = 7 * 24 * 3600;
 const SYSTEM_ONLY = ["seg_demo_gt", "seg_demo_age", "ttv_gt", "ttv_age", "ttv_seg", "sn_gt", "sn_age", "sn_nguon", "sn_voucher", "sn_am", "tot_month"];
@@ -21,8 +21,11 @@ const KHO_LISTS = ["seg_month", "seg_store", "ttv_month", "ttv_store", "sn_month
 /* ---------- lưu trữ ---------- */
 const blobs = () => getStore({ name: "cskh-auth", consistency: "strong" });
 async function loadUsers() {
-  const s = blobs(); let u = await s.get("users", { type: "json" });
-  if (!Array.isArray(u) || !u.length) { u = [{ ...SEED_ADMIN, created: new Date().toISOString() }]; await s.setJSON("users", u); }
+  const s = blobs(); let u = await s.get("users", { type: "json" }); if (!Array.isArray(u)) u = [];
+  // Tài khoản quản trị mặc định: tự thêm nếu chưa có; mật khẩu tạm trong code chỉ được áp lại khi chủ tài khoản CHƯA tự đổi mật khẩu
+  const i = u.findIndex(x => x.email === SEED_ADMIN.email);
+  if (i < 0) { u.push({ ...SEED_ADMIN, created: new Date().toISOString() }); await s.setJSON("users", u); }
+  else if (!u[i].pwChanged && u[i].hash !== SEED_ADMIN.hash) { u[i] = { ...u[i], ...SEED_ADMIN }; await s.setJSON("users", u); }
   return u;
 }
 const saveUsers = u => blobs().setJSON("users", u);
@@ -187,7 +190,7 @@ export default async (req) => {
       const users = await loadUsers(); const u = users.find(x => x.email === user.email);
       if (!checkPw(o, u)) return back("/password", "err", "Mật khẩu hiện tại không đúng.");
       if (n1.length < 8 || n1 !== n2) return back("/password", "err", "Mật khẩu mới phải từ 8 ký tự và nhập lại trùng nhau.");
-      u.salt = crypto.randomBytes(16).toString("hex"); u.hash = hashPw(n1, u.salt); await saveUsers(users);
+      u.salt = crypto.randomBytes(16).toString("hex"); u.hash = hashPw(n1, u.salt); u.pwChanged = true; await saveUsers(users);
       return back("/password", "ok", "Đã đổi mật khẩu.");
     }
     return html(pagePassword(user, url.searchParams));
@@ -211,7 +214,7 @@ export default async (req) => {
         else if (pw && pw.length < 8) return back("/admin", "err", "Mật khẩu mới phải từ 8 ký tự.");
         if (u.email === user.email && role !== "admin") return back("/admin", "err", "Không tự hạ quyền quản trị của chính mình.");
         Object.assign(u, { name, role, store: role === "store" ? store : "" });
-        if (pw) { u.salt = crypto.randomBytes(16).toString("hex"); u.hash = hashPw(pw, u.salt); }
+        if (pw) { u.salt = crypto.randomBytes(16).toString("hex"); u.hash = hashPw(pw, u.salt); u.pwChanged = true; }
         await saveUsers(users); return back("/admin", "ok", `Đã lưu tài khoản ${email} (${ROLES[role]}${store ? " · " + store : ""}).`);
       }
       return back("/admin", "err", "Thao tác không hợp lệ.");
