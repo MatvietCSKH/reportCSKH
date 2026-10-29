@@ -1050,7 +1050,7 @@ function render(){
 }
 document.querySelectorAll('.tab').forEach(t=>{ if (HIDDEN_TABS.includes(t.dataset.v)) t.remove(); else t.addEventListener('click',()=>{state.view=t.dataset.v; render();}); });
 HIDDEN_TABS.forEach(v=>{ const s=el('v-'+v); if(s){ s.hidden=true; s.classList.remove('on'); } });
-(function userbar(){ const u=el('userbar'); if(!u||!window.USER) return; u.innerHTML = `<span><b>${USER.name||USER.email||''}</b> · ${ROLE_LBL[USER.role]||USER.role}${USER.store?' · '+USER.store:''}</span>`+(USER.role==='admin'?'<a href="/admin">Tài khoản</a>':'')+'<a class="ghost" href="/password">Đổi mật khẩu</a><a class="ghost" href="/logout">Đăng xuất</a>'; })();
+(function userbar(){ const u=el('userbar'); if(!u||!window.USER) return; u.innerHTML = `<span class="who"><b>${USER.name||USER.email||''}</b> · ${ROLE_LBL[USER.role]||USER.role}${USER.store?' · '+USER.store:''}</span><span class="acts">`+(USER.role==='admin'?'<a href="/admin">Tài khoản</a>':'')+'<a class="ghost" href="/password">Đổi mật khẩu</a><a class="ghost" href="/logout">Đăng xuất</a></span>'; })();
 const YEARS=[...new Set(D.meta.months.map(m=>m.slice(0,4)))];
 el('fYear').innerHTML=YEARS.map(y=>`<option value="${y}">${y}</option>`).join('');
 el('fMonth').innerHTML=Array.from({length:12},(_,i)=>`<option value="${i+1}">Tháng ${i+1}</option>`).join('');
