@@ -233,8 +233,8 @@ def build():
     t = open(os.path.join(ROOT, "src", "template.html"), encoding="utf-8").read()
     app = open(os.path.join(ROOT, "src", "app.js"), encoding="utf-8").read()
     html = t.replace("__DATA__", data, 1).replace("/* __APP__ */", app, 1)
-    os.makedirs(os.path.join(ROOT, "site"), exist_ok=True)
-    open(os.path.join(ROOT, "site", "index.html"), "w", encoding="utf-8").write(
+    os.makedirs(os.path.join(ROOT, "report"), exist_ok=True)   # KHÔNG nằm trong thư mục publish: function netlify/functions/app.mjs đọc file này, chỉ trả phần dữ liệu người dùng được xem
+    open(os.path.join(ROOT, "report", "index.html"), "w", encoding="utf-8").write(
         '<!doctype html>\n<html lang="vi">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n'
         '<meta name="robots" content="noindex, nofollow">\n</head>\n<body>\n' + html + '\n</body>\n</html>\n')   # trang Netlify
     if HAS_OD:

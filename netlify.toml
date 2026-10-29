@@ -1,7 +1,19 @@
-# Báo cáo CSKH Mắt Việt — site tĩnh, không cần build
+# Báo cáo CSKH Mắt Việt — trang báo cáo nằm sau đăng nhập (Netlify Function + Netlify Blobs)
 [build]
   publish = "site"
   command = ""
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  included_files = ["report/index.html"]
+
+# Mọi đường dẫn đi qua function "app": /login, /logout, /admin, /password, / (báo cáo đã lọc theo quyền)
+[[redirects]]
+  from = "/*"
+  to = "/.netlify/functions/app/:splat"
+  status = 200
+  force = true
 
 [[headers]]
   for = "/*"
@@ -10,4 +22,4 @@
     X-Frame-Options = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Cache-Control = "no-cache"
+    Cache-Control = "no-store"

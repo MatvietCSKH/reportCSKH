@@ -1,0 +1,9 @@
+{
+  "name": "bao-cao-cskh",
+  "private": true,
+  "description": "Báo cáo CSKH Mắt Việt — đăng nhập & phân quyền qua Netlify Functions",
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^8.2.0"
+  }
+}

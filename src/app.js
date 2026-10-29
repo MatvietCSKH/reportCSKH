@@ -1,4 +1,7 @@
 const D = JSON.parse(document.getElementById('data').textContent);
+const USER = window.USER || {role:'admin',name:'',store:''};   // do function đăng nhập chèn vào; mở file HTML trực tiếp = quyền đầy đủ
+const ROLE_LBL = {admin:'Quản trị',manager:'Quản lý (Ops)',store:'Cửa hàng'};
+const HIDDEN_TABS = USER.role==='admin' ? [] : ['hh','sms'];
 const SEGS = ['1. KH mới','2. Quay lại ≤12T','3. KH cũ >12T','4. Buyer (khách lẻ)'];
 const SEG_LBL = {'1. KH mới':'KH mới','2. Quay lại ≤12T':'Quay lại ≤12T','3. KH cũ >12T':'KH cũ >12T','4. Buyer (khách lẻ)':'Buyer (khách lẻ)'};
 const CARDS = ['1. Diamond15','2. Platinum10','3. Gold7','4. Silver5','5. Member','6. Non-MB'];
@@ -8,6 +11,8 @@ const MODEL_LBL = m => (m==='#N/A'||!m) ? '–' : m.replace(/^\d\. /,'');
 const LAST = D.meta.months[D.meta.months.length-1];
 const state = { ptype:'month', year:LAST.slice(0,4), month:parseInt(LAST.slice(5)), quarter:Math.ceil(parseInt(LAST.slice(5))/3), store:'', models:new Set(MODELS), view:'over' };
 try { const s = JSON.parse(localStorage.getItem('cskh-dash')||'{}'); for (const k of ['ptype','year','month','quarter','store','view']) if (s[k]!==undefined) state[k]=s[k]; } catch(e){}
+if (USER.role==='store'){ state.store = USER.store; state.models = new Set(MODELS); }      // cửa hàng: khoá đúng cửa hàng mình, không lọc model
+if (HIDDEN_TABS.includes(state.view)) state.view='over';
 const charts = {};
 
 /* ---------- helpers ---------- */
@@ -1036,13 +1041,16 @@ function renderSMS(){
 
 /* ---------- wiring ---------- */
 function render(){
+  if (HIDDEN_TABS.includes(state.view)) state.view='over';
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
   ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,sms:renderSMS,xnbh:renderXNBH,fb:renderFB})[state.view]();
   el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
 }
-document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{state.view=t.dataset.v; render();}));
+document.querySelectorAll('.tab').forEach(t=>{ if (HIDDEN_TABS.includes(t.dataset.v)) t.remove(); else t.addEventListener('click',()=>{state.view=t.dataset.v; render();}); });
+HIDDEN_TABS.forEach(v=>{ const s=el('v-'+v); if(s){ s.hidden=true; s.classList.remove('on'); } });
+(function userbar(){ const u=el('userbar'); if(!u||!window.USER) return; u.innerHTML = `<span><b>${USER.name||USER.email||''}</b> · ${ROLE_LBL[USER.role]||USER.role}${USER.store?' · '+USER.store:''}</span>`+(USER.role==='admin'?'<a href="/admin">Tài khoản</a>':'')+'<a class="ghost" href="/password">Đổi mật khẩu</a><a class="ghost" href="/logout">Đăng xuất</a>'; })();
 const YEARS=[...new Set(D.meta.months.map(m=>m.slice(0,4)))];
 el('fYear').innerHTML=YEARS.map(y=>`<option value="${y}">${y}</option>`).join('');
 el('fMonth').innerHTML=Array.from({length:12},(_,i)=>`<option value="${i+1}">Tháng ${i+1}</option>`).join('');
@@ -1055,6 +1063,11 @@ for (const [id,key,fn] of [['fType','ptype',v=>v],['fYear','year',v=>v],['fMonth
   el(id).addEventListener('change',()=>{ state[key]=fn(el(id).value); syncFilters(); render(); });
 }
 syncFilters();
+if (USER.role==='store'){   // cửa hàng: ẩn bộ lọc cửa hàng / model và các khối số liệu toàn hệ thống
+  for (const id of ['fStore','fModel']){ const e=el(id); e.hidden=true; if(e.previousElementSibling&&e.previousElementSibling.tagName==='LABEL') e.previousElementSibling.hidden=true; }
+  document.querySelectorAll('label[for="fStore"],label[for="fModel"]').forEach(l=>l.hidden=true);
+  ['c-seg-gt','c-seg-age','c-ttv-gt','c-ttv-age','t-ttv-seg','c-sn-model','c-sn-gt','c-sn-age','t-sn-nguon','t-sn-voucher'].forEach(id=>{ const e=el(id); const c=e&&e.closest('.card'); if(c) c.style.display='none'; });   // ẩn (không xoá) để code vẽ chart không lỗi
+}
 el('fModel').innerHTML = MODELS.map(m=>`<button class="chip" id="chip-${m.replace(/\W/g,'')}" data-m="${m}" aria-pressed="true">${MODEL_LBL(m)}</button>`).join('');
 document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
   const m=c.dataset.m;

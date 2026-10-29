@@ -4,12 +4,14 @@ Dashboard báo cáo CSKH: **Phân tích KH 12M** (KH mới / Quay lại ≤12T /
 
 | Thư mục | Nội dung |
 |---|---|
-| `site/` | Trang web deploy lên Netlify (`index.html` một file, đã chặn Google index) |
+| `report/` | `index.html` — trang báo cáo đầy đủ do script build ra; **không** publish trực tiếp, function đọc và lọc theo quyền |
+| `site/` | Thư mục publish của Netlify (chỉ còn `robots.txt`; mọi đường dẫn được rewrite vào function) |
+| `netlify/functions/app.mjs` | Đăng nhập, phân quyền, quản lý tài khoản (Netlify Blobs), trả trang báo cáo đã lọc |
 | `src/` | `template.html` + `app.js` — giao diện, dùng để ghép lại `site/index.html` |
 | `scripts/` | Script đọc file gốc trên OneDrive và dựng số liệu |
 | `.work/` | Dữ liệu trung gian trên máy — **không** đưa lên GitHub / Netlify |
 
-> ⚠️ `site/index.html` có doanh số theo cửa hàng và tên nhân viên CH: ai có link Netlify đều xem được.
+> Từ 29/10/2026 trang nằm sau đăng nhập (xem mục **Đăng nhập & phân quyền**). Bản HTML đầy đủ vẫn được chép sang OneDrive `Báo cáo/Dashboard CSKH`.
 
 ## Deploy Netlify
 - Nối site Netlify với repo này: Netlify tự đọc `netlify.toml` (publish = `site`, không cần build).
@@ -46,3 +48,10 @@ Dashboard báo cáo CSKH: **Phân tích KH 12M** (KH mới / Quay lại ≤12T /
 - `scripts/hanghoa.py` (được `ctkm.py` gọi kèm ở cuối — đặt biến môi trường `SKIP_HH=1` nếu muốn bỏ; dùng chung quy tắc gán CTKM trong `scripts/ctkm_rules.py`) ghi khoá `hh` của `dash.json`: tháng × cửa hàng × hạng thẻ × CTKM × nhóm hàng (SL, NetSale, CK, bill) và tháng × cửa hàng × hạng thẻ × CTKM(bill) × loại giỏ hàng (bill, NetSale, CK, cặp tròng / gọng / kính mát), kèm top 12 "Loại hàng" mỗi nhóm.
 - Quy ước: **bỏ dòng OTHERS 0đ** (và bill chỉ có các dòng đó); **SL tròng = số miếng ÷ 2** (cặp); CTKM của bill = chiến dịch có doanh số lớn nhất trong bill; chiến dịch ngoài top 45 gom vào "CTKM khác"; NetSale trước VAT như tab CTKM.
 - Bộ lọc riêng của tab: CTKM (chiến dịch) và Hạng thẻ; bảng cuối đổi được chiều Cửa hàng / Model / Tier / AM.
+
+## Đăng nhập & phân quyền (từ 29/10/2026)
+- Mọi đường dẫn đi qua `netlify/functions/app.mjs` (rewrite trong `netlify.toml`): `/login`, `/logout`, `/password` (đổi mật khẩu), `/admin` (quản trị tài khoản), `/` (báo cáo). Trang báo cáo đầy đủ nằm ở `report/index.html` (đóng gói vào function qua `included_files`), server đọc file này, **lọc dữ liệu theo quyền** rồi mới trả về, nên người dùng không thể xem dữ liệu ngoài quyền bằng cách xem mã nguồn.
+- Tài khoản lưu trong Netlify Blobs (store `cskh-auth`, khoá `users`): tên, email, mật khẩu (scrypt), quyền, cửa hàng. Phiên đăng nhập = cookie HttpOnly ký HMAC, 7 ngày; khoá ký tự sinh và lưu trong Blobs. Không cần biến môi trường.
+- Quyền: **Quản trị (admin)** xem tất cả + tạo/xoá tài khoản; **Quản lý / Ops (manager)** xem mọi cửa hàng, chọn được cửa hàng & model, **không** có tab Hàng hóa và SMS/ZNS; **Cửa hàng (store)** chỉ nhận dữ liệu của đúng cửa hàng mình (server lọc mọi bảng có cột cửa hàng, bỏ các bảng toàn hệ thống như giới tính / độ tuổi / nguồn voucher), chỉ chọn được kỳ, không có tab Hàng hóa & SMS/ZNS.
+- Tài khoản quản trị đầu tiên được tạo tự động từ `SEED_ADMIN` trong `app.mjs` (email matvietdesignteam@gmail.com); mật khẩu tạm ghi ở `.work/admin-first-login.txt` trên máy — đăng nhập xong đổi ngay tại `/password`.
+- Mở `report/index.html` trực tiếp trên máy (hoặc bản OneDrive) thì không có `window.USER` → hiển thị đầy đủ như quản trị.
