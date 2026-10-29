@@ -1064,8 +1064,7 @@ for (const [id,key,fn] of [['fType','ptype',v=>v],['fYear','year',v=>v],['fMonth
 }
 syncFilters();
 if (USER.role==='store'){   // cửa hàng: ẩn bộ lọc cửa hàng / model và các khối số liệu toàn hệ thống
-  for (const id of ['fStore','fModel']){ const e=el(id); e.hidden=true; if(e.previousElementSibling&&e.previousElementSibling.tagName==='LABEL') e.previousElementSibling.hidden=true; }
-  document.querySelectorAll('label[for="fStore"],label[for="fModel"]').forEach(l=>l.hidden=true);
+  for (const id of ['fStore','fModel']){ const e=el(id); e.style.display='none'; if(e.previousElementSibling&&e.previousElementSibling.tagName==='LABEL') e.previousElementSibling.style.display='none'; }   // .chips có display:flex nên phải set style, không dùng hidden
   ['c-seg-gt','c-seg-age','c-ttv-gt','c-ttv-age','t-ttv-seg','c-sn-model','c-sn-gt','c-sn-age','t-sn-nguon','t-sn-voucher'].forEach(id=>{ const e=el(id); const c=e&&e.closest('.card'); if(c) c.style.display='none'; });   // ẩn (không xoá) để code vẽ chart không lỗi
 }
 el('fModel').innerHTML = MODELS.map(m=>`<button class="chip" id="chip-${m.replace(/\W/g,'')}" data-m="${m}" aria-pressed="true">${MODEL_LBL(m)}</button>`).join('');
