@@ -158,6 +158,7 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <button class="tab" role="tab" data-v="sms">SMS / ZNS</button>
     <button class="tab" role="tab" data-v="xnbh">XNBH</button>
     <button class="tab" role="tab" data-v="fb">Phản hồi KH</button>
+    <button class="tab" role="tab" data-v="call">Cuộc gọi ra</button>
     <button class="tab" role="tab" data-v="case">Ticket khiếu nại</button>
   </div>
   <div class="filters">
@@ -406,6 +407,40 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Kỳ đang chọn · <b>/10.000 bill</b> = số phản hồi trên 10.000 bill bán của CH trong cùng kỳ (để so sánh công bằng giữa CH lớn và nhỏ; số bill có đến tháng dữ liệu BC21 gần nhất)</p><div class="tw" id="t-fb-store"></div></div>
     <div class="card c12"><p class="ttl">Chi tiết phản hồi</p><p class="note" id="fb-list-note">Bấm vào nội dung để xem đầy đủ · SĐT / tên KH đã được che</p><div class="tw" id="t-fb-list"></div></div>
   </div>
+</section>
+
+
+<!-- ============ CUỘC GỌI RA (line 1002) ============ -->
+<section class="view" id="v-call">
+  <div class="warn" id="call-warn" hidden></div>
+  <div class="kpis" id="call-kpis"></div>
+  <div class="grid">
+    <div class="card c8"><p class="ttl">Cuộc gọi hiệu quả vs target</p><p class="note" id="call-day-note"></p><div class="ch"><canvas id="c-call-day"></canvas></div><div class="legend" id="lg-call-day"></div></div>
+    <div class="card c4"><p class="ttl">Nhịp làm việc</p><p class="note">Kỳ đang chọn · theo log tổng đài</p><div class="tw" id="t-call-rhythm"></div></div>
+    <div class="card c12"><p class="ttl">Theo dõi tuần / tháng / năm</p><p class="note">Các kỳ nằm trong kỳ đang chọn ở bộ lọc · tuần tính Thứ Hai → Chủ Nhật · <b>% nghe máy</b> chỉ hiện khi log của mọi ngày còn đủ cuộc không nghe máy</p>
+      <div class="subbar"><label for="callMode"><b>Xem theo</b></label><select id="callMode"><option value="week">Tuần</option><option value="month">Tháng</option><option value="year">Năm</option></select><span class="note" id="call-wk-note" style="margin:0"></span></div>
+      <div class="ch s"><canvas id="c-call-wk"></canvas></div><div class="tw" id="t-call-wk"></div></div>
+    <div class="card c4"><p class="ttl">Cuộc gọi theo mục đích</p><p class="note">Số không có trong file danh sách gọi = tư vấn khách hàng</p><div class="ch"><canvas id="c-call-purp"></canvas></div><div class="legend" id="lg-call-purp"></div></div>
+    <div class="card c4"><p class="ttl">Cuộc gọi theo giờ</p><p class="note">Cột = tổng cuộc · phần đậm = hiệu quả (≥ 20 giây)</p><div class="ch"><canvas id="c-call-hrs"></canvas></div></div>
+    <div class="card c4"><p class="ttl">Thời lượng đàm thoại</p><p class="note">Cuộc ≥ 20 giây tính là hiệu quả</p><div class="ch"><canvas id="c-call-tb"></canvas></div></div>
+  </div>
+  <h2 id="call-list-ttl">Kết quả gọi CSKH sau mua <small id="call-list-sub"></small></h2>
+  <div class="grid" id="call-list-grid">
+    <div class="card c6"><p class="ttl">Kết quả KH đã gọi</p><p class="note">Gộp theo nhóm từ cột "Kết quả cuộc gọi" của danh sách</p><div class="ch"><canvas id="c-call-grp"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Độ phủ danh sách</p><div class="tw" id="t-call-cover"></div></div>
+    <div class="card c4"><p class="ttl">Mức hài lòng với tư vấn KTV &amp; NVBH</p><p class="note" id="call-sat-note"></p><div class="ch"><canvas id="c-call-sat"></canvas></div><div class="legend" id="lg-call-sat"></div></div>
+    <div class="card c4"><p class="ttl">Điểm 1–5 ba câu hỏi</p><p class="note" id="call-score-note"></p><div class="ch"><canvas id="c-call-scores"></canvas></div><div class="legend" id="lg-call-scores"></div></div>
+    <div class="card c4"><p class="ttl">Vấn đề KH nêu thêm</p><p class="note" id="call-tag-note"></p><div class="ch"><canvas id="c-call-tags"></canvas></div></div>
+    <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Danh sách CSKH sau mua · tô đỏ = ≥ 2 KH không hài lòng hoặc ≥ 3 vấn đề nêu</p><div class="tw" id="t-call-store"></div></div>
+  </div>
+  <details class="def"><summary>Định nghĩa &amp; nguồn</summary>
+    <ul>
+      <li><b>Cuộc gọi hiệu quả</b> = đàm thoại ≥ 20 giây (cột Done trong log tổng đài) — đúng định nghĩa Core KPI C1 của CS (≥ 100 / ngày, ≥ 2.200 / tháng). Target ngày lấy theo sheet KPI ngày của file Daily Report.</li>
+      <li><b>Mục đích gọi</b>: số bị gọi có trong sheet "Call" của file Call after buying → CSKH sau mua; sheet "Dky đo mắt" → xác nhận lịch đo mắt; sheet "NPS" → gọi lại KH NPS thấp; không có trong file → tư vấn khách hàng. Log cũ (đến 9/2026) dùng cột DID.</li>
+      <li>Nguồn: OneDrive › Báo cáo › CS report › <i>Daily Report - Q4.2026.xlsx</i> (sheet 2026 + Chi tiết Outbound), <i>01.Rawdata Outbound.xlsx</i> (log 1–9/2026, đã sửa <span id="call-fixed"></span> dòng đảo ngày/tháng); Data CSKH cũ › 2026 Q4 › <i>Call after buying Q4.2026.xlsx</i>. Chỉ đưa số gộp lên trang, không có SĐT / tên KH.</li>
+      <li>Log từ <span id="call-ansfrom"></span> chỉ còn cuộc nghe máy (thiếu cuộc không bắt máy) nên tỷ lệ nghe máy chỉ tính được cho các ngày log đầy đủ; kết quả "không bắt máy / thuê bao" vẫn có trong danh sách gọi.</li>
+    </ul>
+  </details>
 </section>
 
 <!-- ============ TICKET KHIẾU NẠI (app Case CSKH nhúng, đăng nhập một lần) ============ -->

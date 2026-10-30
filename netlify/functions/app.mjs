@@ -15,7 +15,7 @@ const SEED_ADMIN = { email: "truc.to@matkinh.com.vn", name: "Trúc Tô", role: "
   salt: "6b319a8229e599022242d0e86ca48fd2", hash: "d7c50d5c218e8e1caf9a5fb6d1e4887bb75db05ccbd9122a592bbdd2c61161b9" };
 const ROLES = { admin: "Quản trị", manager: "Quản lý (Ops)", store: "Cửa hàng" };
 // Các mục báo cáo (tab). Admin luôn xem tất cả; tài khoản khác xem đúng các mục admin đã chọn (user.tabs); chưa chọn = mặc định bên dưới.
-const TABS = [["over", "Tổng quan"], ["seg", "Phân tích KH 12M"], ["ttv", "Thẻ thành viên"], ["sn", "Sinh nhật KH"], ["km", "CTKM"], ["awo", "CTKM AWO tại CH"], ["hh", "Hàng hóa"], ["sms", "SMS / ZNS"], ["xnbh", "XNBH"], ["fb", "Phản hồi KH"], ["case", "Ticket khiếu nại"]];
+const TABS = [["over", "Tổng quan"], ["seg", "Phân tích KH 12M"], ["ttv", "Thẻ thành viên"], ["sn", "Sinh nhật KH"], ["km", "CTKM"], ["awo", "CTKM AWO tại CH"], ["hh", "Hàng hóa"], ["sms", "SMS / ZNS"], ["xnbh", "XNBH"], ["fb", "Phản hồi KH"], ["call", "Cuộc gọi ra"], ["case", "Ticket khiếu nại"]];
 // Tab "Ticket khiếu nại" nhúng app Case CSKH (site riêng, backend n8n) và đăng nhập một lần:
 //   GET /sso/case  → ký mã 5 phút cho người đang đăng nhập, chuyển tới CASE_URL/#sso=<mã>&embed=1
 //   POST /sso/verify {token} → n8n gọi về để xác minh mã, nhận {email,name,role,store,caseRole}
@@ -91,7 +91,7 @@ function loadReport() {
 function filterData(D, user) {
   if (user.role === "admin") return D;
   const t = new Set(user.tabs || DEFAULT_TABS);
-  if (!t.has("hh")) delete D.hh; if (!t.has("sms")) delete D.sms; if (!t.has("xnbh")) delete D.xnbh; if (!t.has("fb")) delete D.fb;
+  if (!t.has("hh")) delete D.hh; if (!t.has("sms")) delete D.sms; if (!t.has("xnbh")) delete D.xnbh; if (!t.has("fb")) delete D.fb; if (!t.has("call")) delete D.call;
   if (!t.has("km") && !t.has("awo")) delete D.ctkm;
   if (user.role !== "store") return D;
   const kho = user.store, code = kho.slice(0, 3);
@@ -102,6 +102,10 @@ function filterData(D, user) {
   if (D.ctkm) { const K = D.ctkm, ki = K.kho.indexOf(kho); K.day = (K.day || []).filter(r => r[1] === ki); K.prog = (K.prog || []).filter(r => r[1] === ki); }
   if (D.xnbh) { D.xnbh.rows = (D.xnbh.rows || []).filter(r => r.kho === kho); D.xnbh.stores = kho in (D.xnbh.stores || {}) ? { [kho]: D.xnbh.stores[kho] } : {}; }
   if (D.fb) D.fb.rows = (D.fb.rows || []).filter(r => r.kho === kho);
+  if (D.call) for (const L of Object.values(D.call.lists || {})) {   // cuộc gọi ra: bảng theo cửa hàng chỉ còn cửa hàng mình (KPI tổng đài là của CS, không có SĐT)
+    L.by_store = (L.by_store || []).filter(r => r.code === code);
+    if (L.survey) L.survey.issue_by_store = Object.fromEntries(Object.entries(L.survey.issue_by_store || {}).filter(([k]) => String(k).slice(0, 3) === code));
+  }
   return D;
 }
 function reportJson(user) {

@@ -1,7 +1,7 @@
 const D = JSON.parse(document.getElementById('data').textContent);
 const USER = window.USER || {role:'admin',name:'',store:''};   // do function đăng nhập chèn vào; mở file HTML trực tiếp = quyền đầy đủ
 const ROLE_LBL = {admin:'Quản trị',manager:'Quản lý (Ops)',store:'Cửa hàng'};
-const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb','case'];
+const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb','call','case'];
 // Mục được xem: admin = tất cả; tài khoản khác = danh sách USER.tabs do admin chọn (mặc định: tất cả trừ Hàng hóa & SMS/ZNS)
 const ALLOWED_TABS = USER.role==='admin' ? ALL_TABS : (Array.isArray(USER.tabs) ? ['over',...USER.tabs] : ALL_TABS.filter(t=>!['hh','sms'].includes(t)));
 const HIDDEN_TABS = ALL_TABS.filter(t=>!ALLOWED_TABS.includes(t));
@@ -151,6 +151,12 @@ const LABELS = {
       formatter:(v,c)=>{const t=c.dataset.data.reduce((a,b)=>a+(+b||0),0); return [fmtN(v), fmtP(v,t)];}}}),
   'c-xn-am':     () => ({datalabels:DL.bar(fP1)}),
   'c-case-month':() => ({stackTotals:stackTot(fmtN), datalabels:DL.inside(fmtN,.15)}),
+  'c-call-hrs':  () => ({stackTotals:stackTot(fmtN), datalabels:DL.inside(fmtN,.15)}),
+  'c-call-tb':   () => ({datalabels:DL.bar(fmtN)}),
+  'c-call-scores':() => ({stackTotals:stackTot(fmtN), datalabels:DL.inside(fmtN,.08)}),
+  'c-call-tags': () => ({datalabels:DL.bar(fmtN)}),
+  'c-call-purp': () => ({datalabels:{display:(c)=>{const t=c.dataset.data.reduce((a,b)=>a+(+b||0),0); return t && (+c.dataset.data[c.dataIndex]||0)/t>=.05;}, color:(c)=>inkOn(bgOf(c)), font:{size:11,weight:'700'}, textAlign:'center', formatter:(v,c)=>{const t=c.dataset.data.reduce((a,b)=>a+(+b||0),0); return [fmtN(v), fmtP(v,t)];}}}),
+  'c-call-sat':  () => ({datalabels:{display:(c)=>{const t=c.dataset.data.reduce((a,b)=>a+(+b||0),0); return t && (+c.dataset.data[c.dataIndex]||0)/t>=.05;}, color:(c)=>inkOn(bgOf(c)), font:{size:11,weight:'700'}, textAlign:'center', formatter:(v,c)=>{const t=c.dataset.data.reduce((a,b)=>a+(+b||0),0); return [fmtN(v), fmtP(v,t)];}}}),
   'c-case-group':() => ({stackTotals:stackTot(fmtN), datalabels:DL.inside(fmtN,.2)}),
   'c-xn-tier':   () => ({datalabels:DL.bar(fP1)}),
 };
@@ -1045,6 +1051,104 @@ function renderSMS(){
 }
 
 /* ---------- wiring ---------- */
+
+/* ---------- Cuộc gọi ra của CSKH (line 1002): KPI ngày, theo dõi tuần / tháng / năm, mục đích, kết quả gọi CSKH sau mua ---------- */
+const CALL = D.call || null;
+const CALL_PURP = ['CSKH sau mua','Tư vấn khách hàng','Xác nhận lịch đo mắt','Gọi lại KH NPS thấp'];
+const CALL_GRP = ['Nói chuyện được','Gặp nhưng KH bận','Gặp nhưng từ chối','Gặp người khác / sai số','Không bắt máy','Thuê bao / tắt máy / không tồn tại'];
+let callMode = 'week';
+const dmy2 = ds => ds ? ds.slice(8,10)+'/'+ds.slice(5,7) : '';
+const callInP = r => { const [f,t]=periodRange(); const m=r.d.slice(0,7); return m>=f && m<=t; };
+const callSum = rs => { const T={days:0,target:0,calls:0,ans:0,eff:0,talk:0,uniq:0,full:true,p:{},h:{},b:[0,0,0,0,0,0]};
+  for(const r of rs){ if(r.calls) T.days++; T.target+=r.target||0; T.calls+=r.calls; T.ans+=r.ans; T.eff+=r.eff; T.talk+=r.talk; T.uniq+=r.uniq; if(r.calls&&!r.full) T.full=false;
+    for(const q in r.p) T.p[q]=(T.p[q]||0)+r.p[q]; for(const h in (r.h||{})){ const x=T.h[h]||(T.h[h]=[0,0]); x[0]+=r.h[h][0]; x[1]+=r.h[h][1]; } (r.b||[]).forEach((v,i)=>T.b[i]+=v); }
+  return T; };
+function isoWeek(ds){ const d=new Date(ds+'T00:00:00'); const day=(d.getDay()+6)%7; const mon=new Date(d); mon.setDate(d.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+  const th=new Date(mon); th.setDate(mon.getDate()+3); const y=th.getFullYear(); const jan4=new Date(y,0,4); const w=1+Math.round(((th-jan4)/864e5-3+((jan4.getDay()+6)%7))/7);
+  return {key:y+'-W'+String(w).padStart(2,'0'), label:'Tuần '+w+' · '+mon.getDate()+'/'+(mon.getMonth()+1)+'–'+sun.getDate()+'/'+(sun.getMonth()+1)}; }
+const dLbl = ds => { const d=new Date(ds+'T00:00:00'); return ['CN','T2','T3','T4','T5','T6','T7'][d.getDay()]+' '+d.getDate()+'/'+(d.getMonth()+1); };
+const tgtDs = (data, YEL) => ({type:'line',label:'Target',data,borderColor:YEL,backgroundColor:YEL,borderWidth:3,pointRadius:4,pointBorderColor:cssv('--surface'),pointBorderWidth:2,stepped:true,
+  datalabels:{display:true,align:'top',offset:4,color:cssv('--fg'),backgroundColor:cssv('--surface'),borderRadius:3,padding:{top:1,bottom:0,left:3,right:3},font:{size:10,weight:'700'},formatter:fmtN}});
+function renderCall(){
+  const warn=el('call-warn');
+  if(!CALL||!CALL.daily||!CALL.daily.length){ warn.hidden=false; warn.innerHTML='<b>Chưa có dữ liệu cuộc gọi ra.</b> Chạy <code>scripts/outbound.py</code> (cần file Daily Report - Q4 trên OneDrive).'; return; }
+  warn.hidden=true;
+  const NAVY=cssv('--s1'), YEL=cssv('--s4'), TURQ=cssv('--s3'), CORAL=cssv('--s2'), LB=cssv('--t3'), GREY=cssv('--t6'), BAD=cssv('--bad'), GOOD=cssv('--good');
+  const rows=CALL.daily.filter(callInP), T=callSum(rows); const pct=(a,b)=>b?fmtP(a,b):'–';
+  const [pf,pt]=periodRange(); const oneMonth = pf===pt;
+  el('call-fixed').textContent=fmtN(CALL.raw_fixed||0); el('call-ansfrom').textContent=dmy2(CALL.answered_only_from)||'—';
+  // KPI
+  const rep=Object.entries(CALL.repeat||{}).filter(([m])=>m>=pf&&m<=pt).reduce((a,[,o])=>a+Object.entries(o).filter(([k])=>+k>=2).reduce((x,[,v])=>x+v,0),0);
+  el('call-kpis').innerHTML=[
+    kpi('Cuộc gọi hiệu quả (≥ 20 giây)', fmtN(T.eff), periodLabel()+(T.target?' · target '+fmtN(T.target)+' → đạt <b>'+pct(T.eff,T.target)+'</b>':' · chưa có target'), null, true),
+    kpi('Tổng cuộc gọi ra', fmtN(T.calls), fmtN(T.days)+' ngày gọi · '+fmtN(T.uniq)+' lượt số KH'+(rep?' · '+fmtN(rep)+' số gọi ≥ 2 lần':'')),
+    kpi('Nghe máy', fmtN(T.ans), T.full&&T.calls ? pct(T.ans,T.calls)+' số cuộc quay' : 'log chỉ có cuộc nghe máy từ '+dmy2(CALL.answered_only_from)+' → không tính được tỷ lệ'),
+    kpi('Hiệu quả / ngày', T.days?fmtN(T.eff/T.days):'–', 'mốc Core KPI C1: 100 cuộc / ngày'+(T.days&&T.eff/T.days<100?' · còn thiếu '+fmtN(100-T.eff/T.days):'')),
+    kpi('Giờ đàm thoại', f1(T.talk/3600), T.ans?'TB '+fmtN(T.talk/T.ans)+' giây / cuộc nghe máy':'–'),
+  ].join('');
+  // chart theo ngày (kỳ 1 tháng) hoặc theo tháng
+  let lbls, dEff, dTgt;
+  if(oneMonth){ const rs=rows.filter(r=>r.calls||r.target); lbls=rs.map(r=>dLbl(r.d)); dEff=rs.map(r=>r.eff); dTgt=rs.map(r=>r.target||0); el('call-day-note').textContent='Từng ngày trong '+periodLabel()+' · cột = cuộc hiệu quả, đường = target ngày'; }
+  else { const G={}; for(const r of rows){ const m=r.d.slice(0,7); const g=G[m]||(G[m]={eff:0,t:0}); g.eff+=r.eff; g.t+=r.target||0; } const ms=Object.keys(G).sort(); lbls=ms.map(mLbl); dEff=ms.map(m=>G[m].eff); dTgt=ms.map(m=>G[m].t); el('call-day-note').textContent='Theo tháng trong '+periodLabel()+' · T1–T9/2026 từ log cũ (gần đúng)'; }
+  mk('c-call-day',{data:{labels:lbls,datasets:[barDs('Thực đạt',dEff,NAVY,{borderWidth:0,datalabels:DL.bar(fmtN)}),tgtDs(dTgt,YEL)]},options:{plugins:{tooltip:ttN},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+  legend('lg-call-day',[['Cuộc hiệu quả',NAVY],['Target',YEL]]);
+  // nhịp làm việc
+  const hrsE=Object.entries(T.h).sort((a,b)=>b[1][1]-a[1][1]); const firstLast=rows.filter(r=>r.calls).length;
+  table('t-call-rhythm',['Chỉ số','Giá trị'],[
+    ['Ngày có gọi', fmtN(T.days)], ['Cuộc gọi / ngày', T.days?fmtN(T.calls/T.days):'–'], ['Cuộc hiệu quả / ngày', T.days?'<b>'+fmtN(T.eff/T.days)+'</b>':'–'],
+    ['Giờ đàm thoại / ngày', T.days?f1(T.talk/3600/T.days):'–'], ['Giờ hiệu quả nhất', hrsE.length?hrsE[0][0]+'h ('+fmtN(hrsE[0][1][1])+' cuộc)':'–'],
+    ['Tỷ lệ hiệu quả / cuộc quay', T.full&&T.calls?pct(T.eff,T.calls):'–'], ['Số gọi ≥ 2 lần', fmtN(rep)]]);
+  // theo dõi tuần / tháng / năm trong kỳ
+  const G={}; for(const r of rows){ let k,l; if(callMode==='week'){ const w=isoWeek(r.d); k=w.key; l=w.label; } else if(callMode==='month'){ k=r.d.slice(0,7); l=mLbl(k); } else { k=r.d.slice(0,4); l='Năm '+k; }
+    const g=G[k]||(G[k]={k,l,rs:[]}); g.rs.push(r); }
+  const list=Object.values(G).sort((a,b)=>a.k.localeCompare(b.k)).map(g=>Object.assign({k:g.k,l:g.l},callSum(g.rs))).filter(g=>g.calls||g.target);
+  const cls=g=>g.target?(g.eff>=g.target?'ok':g.eff>=.8*g.target?'mid':'no'):'';
+  const wrow=g=>[g.l, fmtN(g.days), fmtN(g.target), '<b>'+fmtN(g.eff)+'</b>', g.target?`<span class="pill ${cls(g)}">${pct(g.eff,g.target)}</span>`:'–', g.days?fmtN(g.eff/g.days):'–', fmtN(g.calls), fmtN(g.ans), g.full&&g.calls?pct(g.ans,g.calls):'–', fmtN(g.uniq), f1(g.talk/3600), ...CALL_PURP.map(q=>fmtN(g.p[q]||0))];
+  table('t-call-wk',['Kỳ','Ngày gọi','Target','Thực đạt','% đạt','Hiệu quả / ngày','Cuộc gọi','Nghe máy','% nghe máy','Số KH','Giờ đàm thoại','Sau mua','Tư vấn KH','Lịch đo mắt','NPS'], list.map(wrow), list.length>1?wrow(Object.assign({l:'Tổng'},T)):null);
+  el('call-wk-note').textContent=list.length+' kỳ trong '+periodLabel()+' · '+fmtN(T.eff)+' cuộc hiệu quả / target '+fmtN(T.target)+(T.target?' ('+pct(T.eff,T.target)+')':'');
+  mk('c-call-wk',{data:{labels:list.map(g=>g.l.split(' · ')),datasets:[barDs('Thực đạt',list.map(g=>g.eff),NAVY,{borderWidth:0,datalabels:DL.bar(fmtN)}),tgtDs(list.map(g=>g.target),YEL)]},options:{layout:{padding:{top:22}},plugins:{tooltip:ttN},scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{beginAtZero:true,ticks:{precision:0}}}}});
+  // mục đích · giờ · thời lượng
+  const PC=[NAVY,YEL,TURQ,CORAL]; const pv=CALL_PURP.map(q=>T.p[q]||0);
+  mk('c-call-purp',{type:'doughnut',data:{labels:CALL_PURP,datasets:[{data:pv,backgroundColor:PC,borderColor:cssv('--surface'),borderWidth:2}]},options:{cutout:'55%'}});
+  legend('lg-call-purp',CALL_PURP.map((q,i)=>[q+': '+fmtN(pv[i]),PC[i]]));
+  const hk=Object.keys(T.h).map(Number).sort((a,b)=>a-b);
+  mk('c-call-hrs',{type:'bar',data:{labels:hk.map(h=>h+'h'),datasets:[barDs('Hiệu quả',hk.map(h=>T.h[h][1]),NAVY,{stack:'s',borderWidth:0}),barDs('Chưa hiệu quả',hk.map(h=>T.h[h][0]-T.h[h][1]),GREY,{stack:'s',borderWidth:0})]},options:{plugins:{tooltip:ttN},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true,ticks:{precision:0}}}}});
+  mk('c-call-tb',{type:'bar',data:{labels:(CALL.bins||[]).map(l=>wrapLbl(l,10)),datasets:[barDs('Cuộc',T.b,T.b.map((v,i)=>i<2?LB:NAVY),{borderWidth:0})]},options:{plugins:{tooltip:ttN},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+  // ---- danh sách CSKH sau mua ----
+  const Lk=Object.keys(CALL.lists||{}).sort(); const inK=Lk.filter(m=>m>=pf&&m<=pt); const Lm=inK.length?inK[inK.length-1]:Lk[Lk.length-1];
+  const grid=el('call-list-grid'); if(!Lm){ grid.style.display='none'; el('call-list-ttl').style.display='none'; return; }
+  grid.style.display=''; el('call-list-ttl').style.display='';
+  const L=CALL.lists[Lm], S=L.survey||{}; const code3=state.store?storeCode(state.store):'';
+  el('call-list-sub').textContent=`danh sách ${fmtN(L.n)} KH · ${L.src} (cập nhật ${L.mtime})`+(inK.length?'':' · ngoài kỳ đang chọn, hiện danh sách gần nhất '+mLbl(Lm));
+  const reach=(L.grp['Nói chuyện được']||0)+(L.grp['Gặp nhưng KH bận']||0)+(L.grp['Gặp nhưng từ chối']||0), talked=L.grp['Nói chuyện được']||0;
+  const gv=CALL_GRP.map(k=>L.grp[k]||0);
+  mk('c-call-grp',{type:'bar',data:{labels:CALL_GRP.map(l=>wrapLbl(l,18)),datasets:[barDs('KH',gv,[GOOD,YEL,CORAL,LB,NAVY,cssv('--s7')],{borderWidth:0,maxBarThickness:26,datalabels:DL.bar(v=>fmtN(v)+' ('+fmtP(v,L.called)+')',{anchor:'end',align:'end'})})]},options:{indexAxis:'y',layout:{padding:{right:80}},plugins:{tooltip:ttNx},scales:{x:{beginAtZero:true,ticks:{precision:0}},y:{ticks:{font:{size:10.5}}}}}});
+  table('t-call-cover',['Chỉ số','Giá trị'],[
+    ['KH trong danh sách', fmtN(L.n)+' · doanh số '+fmtB(L.rev_total)+' tr'], ['Đã gọi', fmtN(L.called)+' ('+pct(L.called,L.n)+') · bill TB '+fmtM(L.rev_called_avg)+' tr'],
+    ['Chưa gọi (cuối danh sách)', fmtN(L.not_called)+' ('+pct(L.not_called,L.n)+') · bill TB '+fmtM(L.rev_not_called_avg)+' tr'],
+    ['Gặp được KH (trả lời / bận / từ chối)', fmtN(reach)+' ('+pct(reach,L.called)+')'], ['Hoàn thành khảo sát', fmtN(talked)+' ('+pct(talked,L.called)+')'],
+    ['Cần gọi lại lần 2 (không bắt máy + KH bận)', '<b>'+fmtN((L.grp['Không bắt máy']||0)+(L.grp['Gặp nhưng KH bận']||0))+'</b>'],
+    ['Số không liên lạc được', fmtN(L.grp['Thuê bao / tắt máy / không tồn tại']||0)+' ('+pct(L.grp['Thuê bao / tắt máy / không tồn tại']||0,L.called)+')'],
+    ['Lịch đo mắt (sheet Dky đo mắt)', fmtN((L.dk||{}).n||0)+' lịch · '+fmtN((L.dk||{}).in_log||0)+' có cuộc gọi xác nhận'], ['KH NPS thấp cần gọi lại (sheet NPS)', fmtN(L.nps_n||0)]]);
+  const sat=S.sat||{}; const sl=['Rất hài lòng','Hài lòng','Bình thường / tạm','Không hài lòng','Rất không hài lòng'], sv=[sat['Rất hài lòng']||0,sat['Hài lòng']||0,(sat['Bình thường']||0)+(sat['Tạm tạm']||0),sat['Không hài lòng']||0,sat['Rất không hài lòng']||0], SC=[NAVY,TURQ,YEL,CORAL,BAD];
+  el('call-sat-note').textContent=fmtN(S.n_sat||0)+' KH đánh giá · '+pct(sv[0]+sv[1],S.n_sat||0)+' hài lòng';
+  mk('c-call-sat',{type:'doughnut',data:{labels:sl,datasets:[{data:sv,backgroundColor:SC,borderColor:cssv('--surface'),borderWidth:2}]},options:{cutout:'55%'}});
+  legend('lg-call-sat',sl.map((l,i)=>[l+': '+fmtN(sv[i]),SC[i]]));
+  const qs=[['Thời gian chờ',S.wait],['Tư vấn đúng nhu cầu',S.fit],['Thoải mái khi đeo',S.comfort]].filter(x=>x[1]); const QC=[BAD,CORAL,YEL,TURQ,NAVY];
+  el('call-score-note').textContent=qs.map(([l,v])=>l+' '+f1(v.mean||0)).join(' · ')+' (TB / 5) · điểm ≤ 3: '+qs.map(([l,v])=>fmtP(v.low,v.n)).join(' · ');
+  mk('c-call-scores',{type:'bar',data:{labels:qs.map(x=>wrapLbl(x[0],12)),datasets:[1,2,3,4,5].map((s,i)=>barDs('Điểm '+s,qs.map(([,v])=>(v.dist||{})[s]||0),QC[i],{stack:'s',borderWidth:0,maxBarThickness:30}))},options:{indexAxis:'y',plugins:{tooltip:ttNx},scales:{x:{stacked:true,beginAtZero:true,ticks:{precision:0}},y:{stacked:true,ticks:{autoSkip:false,font:{size:10.5}}}}}});
+  legend('lg-call-scores',[1,2,3,4,5].map((s,i)=>['Điểm '+s,QC[i]]));
+  const TAGL={'Tròng kính / độ / chất lượng':'Tròng kính / độ','Không được tư vấn CTKM / ưu đãi':'Không tư vấn CTKM','Thái độ / cách phục vụ':'Thái độ phục vụ','Giao hàng / thời gian chờ':'Giao hàng / chờ lâu','Không muốn nhận cuộc gọi khảo sát':'Không muốn nhận KS','Thiếu phụ kiện (bao / hộp)':'Thiếu bao / hộp'};
+  const tg=Object.entries(S.issue_tags||{}).sort((a,b)=>b[1]-a[1]);
+  el('call-tag-note').textContent=fmtN(S.issues_n||0)+' KH ghi nhận · gắn nhãn theo từ khoá (1 KH có thể nhiều nhãn)'+(S.ctkm?' · được tư vấn CTKM: '+Object.entries(S.ctkm).map(([k,v])=>k+' '+fmtN(v)).join(' / '):'');
+  mk('c-call-tags',{type:'bar',data:{labels:tg.map(([k])=>TAGL[k]||k),datasets:[barDs('KH',tg.map(x=>x[1]),tg.map(([k])=>k.startsWith('Tròng')?CORAL:k.startsWith('Không được')?YEL:NAVY),{borderWidth:0,maxBarThickness:22})]},options:{indexAxis:'y',plugins:{tooltip:ttNx},scales:{x:{beginAtZero:true,ticks:{precision:0}},y:{ticks:{autoSkip:false,font:{size:10.5}}}}}});
+  // theo cửa hàng
+  const bs=(L.by_store||[]).filter(r=>!code3||r.code===code3);
+  const srow=r=>[`<span${r.sat_neg>=2||r.issues>=3?' style="color:var(--bad);font-weight:700"':''}>${r.ch}</span>`, fmtN(r.n), fmtN(r.called), pct(r.called,r.n), fmtN(r.talked), pct(r.talked,r.called), fmtN(r.noanswer), fmtN(r.sat_pos)+'/'+fmtN(r.sat_n), fmtN(r.sat_neg), fmtN(r.issues), fmtB(r.rev)];
+  const tot=bs.reduce((a,r)=>{ for(const k of ['n','called','talked','noanswer','sat_pos','sat_n','sat_neg','issues','rev']) a[k]=(a[k]||0)+r[k]; return a; },{ch:'Tổng'});
+  table('t-call-store',['Cửa hàng','KH trong DS','Đã gọi','% gọi','Nói chuyện được','% / đã gọi','Không bắt máy / thuê bao','Hài lòng','Không HL','Vấn đề nêu','Doanh số (tr)'], bs.map(srow), bs.length>1?srow(tot):null);
+}
+
 // Tab Ticket khiếu nại: khối thống kê đọc sống từ n8n qua GET /api/case-stats (server gom theo tháng × cửa hàng; tài khoản cửa hàng chỉ nhận số của mình),
 // bên dưới nhúng app Case CSKH qua /sso/case (server ký mã đăng nhập một lần). Mở file HTML trực tiếp (không có window.USER) thì chỉ hiện link.
 let CASE=null, caseBusy=false;
@@ -1123,7 +1227,7 @@ function render(){
   if (HIDDEN_TABS.includes(state.view)) state.view='over';
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
-  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,sms:renderSMS,xnbh:renderXNBH,fb:renderFB,case:renderCase})[state.view]();
+  ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,sms:renderSMS,xnbh:renderXNBH,fb:renderFB,call:renderCall,case:renderCase})[state.view]();
   el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
 }
@@ -1143,6 +1247,7 @@ for (const [id,key,fn] of [['fType','ptype',v=>v],['fYear','year',v=>v],['fMonth
   el(id).addEventListener('change',()=>{ state[key]=fn(el(id).value); syncFilters(); render(); });
 }
 syncFilters();
+(function(){ const cm=el('callMode'); if(cm) cm.addEventListener('change',()=>{ callMode=cm.value; render(); }); })();
 if (USER.role==='store'){   // cửa hàng: ẩn bộ lọc cửa hàng / model và các khối số liệu toàn hệ thống
   for (const id of ['fStore','fModel']){ const e=el(id); e.style.display='none'; if(e.previousElementSibling&&e.previousElementSibling.tagName==='LABEL') e.previousElementSibling.style.display='none'; }   // .chips có display:flex nên phải set style, không dùng hidden
   ['c-seg-gt','c-seg-age','c-ttv-gt','c-ttv-age','t-ttv-seg','c-sn-model','c-sn-gt','c-sn-age','t-sn-nguon','t-sn-voucher'].forEach(id=>{ const e=el(id); const c=e&&e.closest('.card'); if(c) c.style.display='none'; });   // ẩn (không xoá) để code vẽ chart không lỗi
