@@ -179,7 +179,7 @@ def read_call_list(path, log_phones):
 
 def main():
     if not BAOCAO: print("outbound: không có OneDrive — bỏ qua"); return
-    f_daily = find("CS report/Daily Report - Q4*.xlsx"); f_raw = find("CS report/01.Rawdata Outbound.xlsx")
+    f_daily = os.environ.get("OUTBOUND_DAILY") or find("CS report/Daily Report - Q4*.xlsx"); f_raw = find("CS report/01.Rawdata Outbound.xlsx")   # OUTBOUND_DAILY: đường dẫn thay thế khi file gốc đang bị khoá
     f_call = find("Data CSKH c*/2026 Q4/Call after buying*.xlsx")
     if not f_daily: print("outbound: không thấy Daily Report - Q4 — bỏ qua"); return
     lg, tg_q4 = read_q4_log(f_daily)
@@ -208,6 +208,7 @@ def main():
             if datetime.date.fromisoformat(d) < q4_first.replace(day=1): targets[d] = t
     for d, r in q4_days.items(): days[d.isoformat()] = r
     targets.update(tg_q4)
+    days = {d: r for d, r in days.items() if d >= "2026-01-01"}        # trang chỉ theo dõi từ 2026
     last = max(days) if days else datetime.date.today().isoformat()
     for d in set(targets) | set(days):
         if d < "2026-01-01" or d > last: continue
