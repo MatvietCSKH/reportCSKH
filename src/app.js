@@ -1059,8 +1059,8 @@ const CALL_GRP = ['Nói chuyện được','Gặp nhưng KH bận','Gặp nhưng
 let callMode = 'week';
 const dmy2 = ds => ds ? ds.slice(8,10)+'/'+ds.slice(5,7) : '';
 const callInP = r => { const [f,t]=periodRange(); const m=r.d.slice(0,7); return m>=f && m<=t; };
-const callSum = rs => { const T={days:0,target:0,calls:0,ans:0,eff:0,talk:0,uniq:0,full:true,fCalls:0,fAns:0,p:{},h:{},b:[0,0,0,0,0,0]};   // fCalls / fAns: chỉ các ngày log còn đủ cuộc không nghe máy
-  for(const r of rs){ if(r.calls) T.days++; T.target+=r.target||0; T.calls+=r.calls; T.ans+=r.ans; T.eff+=r.eff; T.talk+=r.talk; T.uniq+=r.uniq; if(r.calls&&!r.full) T.full=false; if(r.calls&&r.full){ T.fCalls+=r.calls; T.fAns+=r.ans; }
+const callSum = rs => { const T={days:0,target:0,calls:0,ans:0,eff:0,talk:0,uniq:0,full:true,fCalls:0,fAns:0,fDays:0,fFrom:'',fTo:'',p:{},h:{},b:[0,0,0,0,0,0]};   // fCalls / fAns: chỉ các ngày log còn đủ cuộc không nghe máy
+  for(const r of rs){ if(r.calls) T.days++; T.target+=r.target||0; T.calls+=r.calls; T.ans+=r.ans; T.eff+=r.eff; T.talk+=r.talk; T.uniq+=r.uniq; if(r.calls&&!r.full) T.full=false; if(r.calls&&r.full){ T.fCalls+=r.calls; T.fAns+=r.ans; T.fDays++; if(!T.fFrom) T.fFrom=r.d; T.fTo=r.d; }
     for(const q in r.p) T.p[q]=(T.p[q]||0)+r.p[q]; for(const h in (r.h||{})){ const x=T.h[h]||(T.h[h]=[0,0]); x[0]+=r.h[h][0]; x[1]+=r.h[h][1]; } (r.b||[]).forEach((v,i)=>T.b[i]+=v); }
   return T; };
 function isoWeek(ds){ const d=new Date(ds+'T00:00:00'); const day=(d.getDay()+6)%7; const mon=new Date(d); mon.setDate(d.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6);
@@ -1092,7 +1092,8 @@ function renderCall(){
   else { const G={}; for(const r of rows){ const m=r.d.slice(0,7); const g=G[m]||(G[m]={eff:0,t:0}); g.eff+=r.eff; g.t+=r.target||0; } const ms=Object.keys(G).sort(); lbls=ms.map(mLbl); dEff=ms.map(m=>G[m].eff); dTgt=ms.map(m=>G[m].t); el('call-day-note').textContent='Theo tháng trong '+periodLabel()+' · T1–T9/2026 từ log cũ (gần đúng)'; }
   mk('c-call-day',{data:{labels:lbls,datasets:[barDs('Thực đạt',dEff,NAVY,{borderWidth:0,datalabels:DL.bar(fmtN)}),tgtDs(dTgt,YEL)]},options:{plugins:{tooltip:ttN},scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
   legend('lg-call-day',[['Cuộc hiệu quả',NAVY],['Target',YEL]]);
-  const ansPct=g=>g.full&&g.calls ? pct(g.ans,g.calls) : g.fCalls ? '<span title="Chỉ tính các ngày log còn đủ cuộc không nghe máy">'+pct(g.fAns,g.fCalls)+'*</span>' : '–';
+  // % nghe máy: từ 21/10 log chỉ còn cuộc nghe máy nên chỉ tính được trên các ngày log đủ → ghi rõ phân số + số ngày để khỏi so với cột Cuộc gọi / Nghe máy (cộng cả kỳ)
+  const ansPct=g=>g.full&&g.calls ? pct(g.ans,g.calls) : g.fCalls ? '<span title="Chỉ tính '+g.fDays+' ngày log còn đủ cuộc không nghe máy ('+dmy2(g.fFrom)+(g.fTo!==g.fFrom?'–'+dmy2(g.fTo):'')+'): '+fmtN(g.fAns)+' nghe máy / '+fmtN(g.fCalls)+' cuộc">'+pct(g.fAns,g.fCalls)+'*</span><br><small class="note" style="margin:0;white-space:nowrap">'+fmtN(g.fAns)+'/'+fmtN(g.fCalls)+' · '+g.fDays+' ngày</small>' : '<span title="Log kỳ này chỉ có cuộc nghe máy nên không tính được">–</span>';
   // nhịp làm việc
   const hrsE=Object.entries(T.h).sort((a,b)=>b[1][1]-a[1][1]); const firstLast=rows.filter(r=>r.calls).length;
   table('t-call-rhythm',['Chỉ số','Giá trị'],[
