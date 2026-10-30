@@ -1104,9 +1104,10 @@ function renderCall(){
     const g=G[k]||(G[k]={k,l,rs:[]}); g.rs.push(r); }
   const list=Object.values(G).sort((a,b)=>a.k.localeCompare(b.k)).map(g=>Object.assign({k:g.k,l:g.l},callSum(g.rs))).filter(g=>g.calls||g.target);
   const cls=g=>g.target?(g.eff>=g.target?'ok':g.eff>=.8*g.target?'mid':'no'):'';
-  const wrow=g=>[g.l, fmtN(g.days), fmtN(g.target), '<b>'+fmtN(g.eff)+'</b>', g.target?`<span class="pill ${cls(g)}">${pct(g.eff,g.target)}</span>`:'–', g.days?fmtN(g.eff/g.days):'–', fmtN(g.calls), fmtN(g.ans), ansPct(g), fmtN(g.uniq), f1(g.talk/3600), ...CALL_PURP.map(q=>fmtN(g.p[q]||0))];
-  table('t-call-wk',['Kỳ','Ngày gọi','Target','Thực đạt','% đạt','Hiệu quả / ngày','Cuộc gọi','Nghe máy','% nghe máy','Số KH','Giờ đàm thoại','Sau mua','Tư vấn KH','Lịch đo mắt','NPS'], list.map(wrow), list.length>1?wrow(Object.assign({l:'Tổng'},T)):null);
-  el('call-wk-note').textContent=list.length+' kỳ trong '+periodLabel()+' · '+fmtN(T.eff)+' cuộc hiệu quả / target '+fmtN(T.target)+(T.target?' ('+pct(T.eff,T.target)+')':'')+(T.full?'':' · * % nghe máy chỉ tính các ngày log còn đủ cuộc không nghe máy (từ '+dmy2(CALL.answered_only_from)+' log chỉ có cuộc nghe máy)');
+  const other=g=>CALL_PURP.slice(1).map(q=>g.p[q]||0); const otherTip=g=>CALL_PURP.slice(1).map((q,i)=>q+': '+fmtN(other(g)[i])).join(' · ');
+  const wrow=g=>[g.l, fmtN(g.days), fmtN(g.target), '<b>'+fmtN(g.eff)+'</b>', g.target?`<span class="pill ${cls(g)}">${pct(g.eff,g.target)}</span>`:'–', g.days?fmtN(g.eff/g.days):'–', fmtN(g.calls), fmtN(g.ans), ansPct(g), fmtN(g.uniq), f1(g.talk/3600), fmtN(g.p['CSKH sau mua']||0), `<span title="${otherTip(g)}">${fmtN(other(g).reduce((a,b)=>a+b,0))}</span>`];
+  table('t-call-wk',['Kỳ','Ngày gọi','Target','Thực đạt','% đạt','HQ / ngày','Cuộc gọi','Nghe máy','% nghe máy','Số KH','Giờ ĐT','Sau mua','Khác*'], list.map(wrow), list.length>1?wrow(Object.assign({l:'Tổng'},T)):null);
+  el('call-wk-note').textContent=list.length+' kỳ trong '+periodLabel()+' · '+fmtN(T.eff)+' cuộc hiệu quả / target '+fmtN(T.target)+(T.target?' ('+pct(T.eff,T.target)+')':'')+(T.full?'':' · % nghe máy có dấu * chỉ tính các ngày log còn đủ cuộc không nghe máy (từ '+dmy2(CALL.answered_only_from)+' log chỉ có cuộc nghe máy)')+' · Khác* = tư vấn KH + lịch đo mắt + NPS (rê chuột xem chi tiết)';
   mk('c-call-wk',{data:{labels:list.map(g=>g.l.split(' · ')),datasets:[barDs('Thực đạt',list.map(g=>g.eff),NAVY,{borderWidth:0,datalabels:DL.bar(fmtN)}),tgtDs(list.map(g=>g.target),YEL)]},options:{layout:{padding:{top:22}},plugins:{tooltip:ttN},scales:{x:{ticks:{autoSkip:false,font:{size:10}}},y:{beginAtZero:true,ticks:{precision:0}}}}});
   // mục đích · giờ · thời lượng
   const PC=[NAVY,YEL,TURQ,CORAL]; const pv=CALL_PURP.map(q=>T.p[q]||0);
