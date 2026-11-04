@@ -205,6 +205,11 @@ function renderOver(){
   mk('c-over-segpie',{type:'doughnut',data:{labels:SEGS.map(s=>SEG_LBL[s]),datasets:[{data:vals,backgroundColor:SEGS.map(s=>SC[s]),borderColor:cssv('--surface'),borderWidth:2,hoverOffset:4}]},
     options:{cutout:'58%',plugins:{datalabels:DL.pie(tot.rev),tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtB(c.parsed)}  tr (${fmtP(c.parsed,tot.rev)})`}}}}});
   legend('lg-over-segpie', SEGS.map(s=>[SEG_LBL[s]+' '+fmtP(bySeg[s].rev,tot.rev),SC[s]]));
+  // cơ cấu theo số lượng: Customer của 3 nhóm KH + số bill khách lẻ
+  const cnt=SEGS.map(s=>bySeg[s].n), totN=cnt.reduce((a,b)=>a+b,0);
+  mk('c-over-segcnt',{type:'doughnut',data:{labels:SEGS.map(s=>SEG_LBL[s]),datasets:[{data:cnt,backgroundColor:SEGS.map(s=>SC[s]),borderColor:cssv('--surface'),borderWidth:2,hoverOffset:4}]},
+    options:{cutout:'58%',plugins:{datalabels:DL.pie(totN),tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtN(c.parsed)} ${c.label.startsWith('Buyer')?'bill':'KH'} (${fmtP(c.parsed,totN)})`}}}}});
+  legend('lg-over-segcnt', SEGS.map((s,i)=>[SEG_LBL[s]+' '+fmtN(cnt[i])+(s==='4. Buyer (khách lẻ)'?' bill':' KH')+' · '+fmtP(cnt[i],totN),SC[s]]));
   mk('c-over-bills',{type:'line',data:{labels:lbl,datasets:[lineDs('Số bill',ms.map(m=>SEGS.reduce((a,s)=>a+get(m,s).bills,0)),cssv('--accent'),{fill:true,backgroundColor:cssv('--accent')+'1a'})]},
     options:{plugins:{tooltip:ttN},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>fmtN(v)}}}}});
   mk('c-over-cr',{type:'line',data:{labels:sn.ms.map(mLbl),datasets:[lineDs('CR',sn.ms.map(m=>{const g=sn.get(m);return pct(g.redeemed,g.sent);}),cssv('--s3'))]},
@@ -1120,7 +1125,7 @@ const callSum = rs => { const T={days:0,target:0,calls:0,ans:0,eff:0,talk:0,uniq
   for(const r of rs){ if(r.calls) T.days++; T.target+=r.target||0; T.calls+=r.calls; T.ans+=r.ans; T.eff+=r.eff; T.talk+=r.talk; T.uniq+=r.uniq; if(r.calls&&!r.full) T.full=false; if(r.calls&&r.full){ T.fCalls+=r.calls; T.fAns+=r.ans; T.fDays++; if(!T.fFrom) T.fFrom=r.d; T.fTo=r.d; }
     for(const q in r.p) T.p[q]=(T.p[q]||0)+r.p[q]; for(const h in (r.h||{})){ const x=T.h[h]||(T.h[h]=[0,0]); x[0]+=r.h[h][0]; x[1]+=r.h[h][1]; } (r.b||[]).forEach((v,i)=>T.b[i]+=v); }
   return T; };
-function isoWeek(ds){ const d=new Date(ds+'T00:00:00'); const day=(d.getDay()+6)%7; const mon=new Date(d); mon.setDate(d.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6);
+function callWeek(ds){ const d=new Date(ds+'T00:00:00'); const day=(d.getDay()+6)%7; const mon=new Date(d); mon.setDate(d.getDate()-day); const sun=new Date(mon); sun.setDate(mon.getDate()+6);
   const th=new Date(mon); th.setDate(mon.getDate()+3); const y=th.getFullYear(); const jan4=new Date(y,0,4); const w=1+Math.round(((th-jan4)/864e5-3+((jan4.getDay()+6)%7))/7);
   return {key:y+'-W'+String(w).padStart(2,'0'), label:'Tuần '+w+' · '+mon.getDate()+'/'+(mon.getMonth()+1)+'–'+sun.getDate()+'/'+(sun.getMonth()+1)}; }
 const dLbl = ds => { const d=new Date(ds+'T00:00:00'); return ['CN','T2','T3','T4','T5','T6','T7'][d.getDay()]+' '+d.getDate()+'/'+(d.getMonth()+1); };
@@ -1158,7 +1163,7 @@ function renderCall(){
     ['Giờ đàm thoại / ngày', T.days?f1(T.talk/3600/T.days):'–'], ['Giờ hiệu quả nhất', hrsE.length?hrsE[0][0]+'h ('+fmtN(hrsE[0][1][1])+' cuộc)':'–'],
     ['Tỷ lệ nghe máy', ansPct(T)], ['Số gọi ≥ 2 lần', fmtN(rep)]]);
   // theo dõi tuần / tháng / năm trong kỳ
-  const G={}; for(const r of rows){ let k,l; if(callMode==='week'){ const w=isoWeek(r.d); k=w.key; l=w.label; } else if(callMode==='month'){ k=r.d.slice(0,7); l=mLbl(k); } else { k=r.d.slice(0,4); l='Năm '+k; }
+  const G={}; for(const r of rows){ let k,l; if(callMode==='week'){ const w=callWeek(r.d); k=w.key; l=w.label; } else if(callMode==='month'){ k=r.d.slice(0,7); l=mLbl(k); } else { k=r.d.slice(0,4); l='Năm '+k; }
     const g=G[k]||(G[k]={k,l,rs:[]}); g.rs.push(r); }
   const list=Object.values(G).sort((a,b)=>a.k.localeCompare(b.k)).map(g=>Object.assign({k:g.k,l:g.l},callSum(g.rs))).filter(g=>g.calls||g.target);
   const cls=g=>g.target?(g.eff>=g.target?'ok':g.eff>=.8*g.target?'mid':'no'):'';
@@ -1321,7 +1326,7 @@ if (USER.role==='store'){   // cửa hàng: ẩn bộ lọc cửa hàng / model 
   for (const id of ['fStore','fModel']){ const e=el(id); e.style.display='none'; if(e.previousElementSibling&&e.previousElementSibling.tagName==='LABEL') e.previousElementSibling.style.display='none'; }   // .chips có display:flex nên phải set style, không dùng hidden
   ['c-seg-gt','c-seg-age','c-ttv-gt','c-ttv-age','t-ttv-seg','c-sn-model','c-sn-gt','c-sn-age','t-sn-nguon','t-sn-voucher'].forEach(id=>{ const e=el(id); const c=e&&e.closest('.card'); if(c) c.style.display='none'; });   // ẩn (không xoá) để code vẽ chart không lỗi
 }
-el('fModel').innerHTML = MODELS.map(m=>`<button class="chip" id="chip-${m.replace(/\W/g,'')}" data-m="${m}" aria-pressed="true">${MODEL_LBL(m)}</button>`).join('');
+el('fModel').innerHTML = MODELS.filter(m=>m!=='5. Online').map(m=>`<button class="chip" id="chip-${m.replace(/\W/g,'')}" data-m="${m}" aria-pressed="true">${MODEL_LBL(m)}</button>`).join('');   // Online đã tách sang mục Ecom
 document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
   const m=c.dataset.m;
   if (state.models.size===MODELS.length){ state.models=new Set([m]); }          // first click: isolate

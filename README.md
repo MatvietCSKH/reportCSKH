@@ -49,6 +49,11 @@ Dashboard báo cáo CSKH: **Phân tích KH 12M** (KH mới / Quay lại ≤12T /
 - Quy ước: **bỏ dòng OTHERS 0đ** (và bill chỉ có các dòng đó); **SL tròng = số miếng ÷ 2** (cặp); CTKM của bill = chiến dịch có doanh số lớn nhất trong bill; chiến dịch ngoài top 45 gom vào "CTKM khác"; NetSale trước VAT như tab CTKM.
 - Bộ lọc riêng của tab: CTKM (chiến dịch) và Hạng thẻ; bảng cuối đổi được chiều Cửa hàng / Model / Tier / AM.
 
+## Bố cục & bảng (04/11/2026)
+- Tổng quan: KPI 4 cột; hàng 1 doanh số theo tháng (c8) + cơ cấu doanh số theo nhóm KH (c4); hàng 2 cơ cấu **số lượng** theo nhóm KH (`c-over-segcnt`: Customer của KH mới / quay lại / KH cũ + số bill khách lẻ) + số bill theo tháng + CR sinh nhật (mỗi c4).
+- Bảng không có thanh kéo ngang trên desktop: `.tw{overflow-x:visible}`, `th,td{white-space:normal;overflow-wrap:anywhere}`, chữ 12,5px; dưới 900px `.tw` kéo ngang lại. Bảng mới chỉ cần đặt trong `.tw` (hoặc div thường), không tự thêm `overflow-x`.
+- Tên hàm dùng chung (`isoWeek`, `group`, `table`…) chỉ khai báo một lần trong `app.js`; tab mới cần hàm riêng thì đặt tên khác (lỗi 30/10–04/11: `isoWeek` khai báo lại ở tab Cuộc gọi ra làm vỡ tab CTKM).
+
 ## Ecom (kênh Online) tách riêng — từ 04/11/2026
 - **Online = kho mã `902-*`** (Onl, Web, Facebook, Shopee, Lazada, Tiktokshop, Gosumo, VuaHangHieu, OnlineWH…). Công tắc **Cửa hàng / Ecom** ở đầu thanh tab: *Cửa hàng* = mọi tab, số liệu **không gồm** Online (CTKM / AWO cũng bỏ kho 902); *Ecom* = chỉ 5 tab Tổng quan · Phân tích KH 12M · Thẻ thành viên · Sinh nhật KH · Phản hồi KH, số liệu chỉ kênh Online, bộ lọc cửa hàng liệt kê các kho 902, không có bộ lọc model, ẩn khối "Cửa hàng chủ động liên hệ KH sinh nhật".
 - Kỹ thuật: `app.js` có `state.scope` (`ch` | `ecom`), `isOnl(kho)`, `okChR(r)` lọc theo cột `kho` hoặc cột `ch`; `compute.py` thêm cột **`ch`** (`onl` / `off`) vào các bảng toàn hệ thống không có cột kho (`seg_demo_gt/age`, `ttv_gt/age/seg`, `sn_gt/age/nguon/voucher/am`, `tot_month`). Phản hồi KH kênh Online = cửa hàng mã 902 (cột Group "Online" trong file phản hồi là kênh tiếp nhận, không dùng để phân kênh).
