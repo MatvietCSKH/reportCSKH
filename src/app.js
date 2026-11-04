@@ -209,6 +209,54 @@ function renderOver(){
     options:{plugins:{tooltip:ttN},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>fmtN(v)}}}}});
   mk('c-over-cr',{type:'line',data:{labels:sn.ms.map(mLbl),datasets:[lineDs('CR',sn.ms.map(m=>{const g=sn.get(m);return pct(g.redeemed,g.sent);}),cssv('--s3'))]},
     options:{plugins:{tooltip:ttP},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+  if (ECOM()) renderEcom();
+}
+
+/* ================= ECOM: phân tích riêng kênh Online theo sàn ================= */
+// Mỗi kho 902-(X) = một sàn / kênh bán. Bill có SĐT = bill thuộc nhóm KH (không phải Buyer khách lẻ). Tỷ trọng = so với mọi kho (cửa hàng + event + Online + nội bộ).
+const sanLbl = k => (k.match(/\(([^)]*)\)/)||[,k])[1];
+function renderEcom(){
+  const pm=periodMonths(), ms=months(), BUYER='4. Buyer (khách lẻ)';
+  const S={}, M={}, sysM={};
+  for(const r of D.seg_month){
+    const onl=isOnl(r.kho), ic=inChart(r.month);
+    if(ic){ const g=sysM[r.month]||(sysM[r.month]={rev:0,bills:0,orev:0,obills:0,oph:0}); g.rev+=r.rev; g.bills+=r.bills; if(onl){ g.orev+=r.rev; g.obills+=r.bills; if(r.seg!==BUYER) g.oph+=r.bills; } }
+    if(!onl || (state.store && r.kho!==state.store)) continue;
+    if(ic){ const g=M[r.month]||(M[r.month]={}); g[r.kho]=(g[r.kho]||0)+r.rev; }
+    if(!inPeriod(r.month)) continue;
+    const s=S[r.kho]||(S[r.kho]={bills:0,rev:0,ph:0,cust:0,newc:0,mb:0});
+    s.bills+=r.bills; s.rev+=r.rev; if(r.seg!==BUYER){ s.ph+=r.bills; s.cust+=r.cust; } if(r.seg==='1. KH mới') s.newc+=r.cust;
+  }
+  for(const r of D.ttv_month){ if(!isOnl(r.kho)||!inPeriod(r.month)||r.card==='6. Non-MB') continue; if(state.store&&r.kho!==state.store) continue; const s=S[r.kho]; if(s) s.mb+=r.rev; }
+  const keys=Object.keys(S).sort((a,b)=>S[b].rev-S[a].rev);
+  const tot={bills:0,rev:0,ph:0,cust:0,newc:0,mb:0}; for(const k of keys) for(const f in tot) tot[f]+=S[k][f];
+  const sysP={rev:0,bills:0}; for(const m of pm){ const g=sysM[m]; if(g){ sysP.rev+=g.rev; sysP.bills+=g.bills; } }
+  el('ec-kpis').innerHTML=[
+    kpi('Doanh số Online', fmtB(tot.rev)+' <small style="font-size:14px;color:var(--fg-3)">tr</small>', fmtN(tot.bills)+' bill · '+keys.length+' sàn / kho · '+periodLabel(), null, true),
+    kpi('Tỷ trọng toàn hệ thống', fmtP(tot.rev,sysP.rev), fmtP(tot.bills,sysP.bills)+' số bill toàn công ty'),
+    kpi('Bill có SĐT', fmtP(tot.ph,tot.bills), fmtN(tot.ph)+' / '+fmtN(tot.bills)+' bill chăm sóc được'),
+    kpi('Customer', fmtN(tot.cust), 'KH có SĐT · '+fmtP(tot.newc,tot.cust)+' là KH mới'),
+    kpi('ATV / bill', fmtM(tot.bills?tot.rev/tot.bills:0)+' <small style="font-size:13px;color:var(--fg-3)">tr</small>', 'doanh số / bill'),
+    kpi('Sàn lớn nhất', keys.length?sanLbl(keys[0]):'–', keys.length?fmtP(S[keys[0]].rev,tot.rev)+' doanh số Online':'')
+  ].join('');
+  const PAL=['--s1','--s3','--s4','--s2','--t3','--t2','--t5'].map(cssv);
+  const top=keys.slice(0,12);
+  mk('c-ec-san',{type:'bar',data:{labels:top.map(sanLbl),datasets:[barDs('Doanh số',top.map(k=>S[k].rev/1e6),cssv('--s1'))]},
+    options:{plugins:{tooltip:{callbacks:{label:c=>{const s=S[top[c.dataIndex]]; return ` ${fmtN(c.parsed.y)} tr · ${fmtN(s.bills)} bill · ${fmtP(s.ph,s.bills)} có SĐT`;}}},datalabels:DL.bar(v=>fmtN(v))},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>fmtN(v)+' tr'}}}}});
+  const agg={}; for(const m of ms) for(const k in (M[m]||{})) agg[k]=(agg[k]||0)+M[m][k];
+  const k6=Object.keys(agg).sort((a,b)=>agg[b]-agg[a]).slice(0,6), other=Object.keys(agg).filter(k=>!k6.includes(k));
+  const ds=k6.map((k,i)=>barDs(sanLbl(k),ms.map(m=>((M[m]||{})[k]||0)/1e6),PAL[i%PAL.length],{stack:'a'}));
+  if(other.length) ds.push(barDs('Khác',ms.map(m=>other.reduce((a,k)=>a+((M[m]||{})[k]||0),0)/1e6),cssv('--t6'),{stack:'a'}));
+  TOTALS['c-ec-month']=stackTot(v=>fmtN(v));
+  mk('c-ec-month',{type:'bar',data:{labels:ms.map(mLbl),datasets:ds},options:{plugins:{tooltip:ttB,datalabels:{display:false}},scales:{x:{stacked:true},y:{stacked:true,ticks:{callback:v=>fmtN(v)+' tr'}}}}});
+  const pc1=v=>v.toLocaleString('vi-VN',{maximumFractionDigits:1})+'%';
+  mk('c-ec-phone',{type:'line',data:{labels:ms.map(mLbl),datasets:[lineDs('% bill có SĐT',ms.map(m=>{const g=sysM[m]||{}; return pct(g.oph||0,g.obills||0);}),cssv('--s3'))]},
+    options:{plugins:{tooltip:ttP,datalabels:DL.line(pc1)},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+  mk('c-ec-share',{type:'line',data:{labels:ms.map(mLbl),datasets:[lineDs('% doanh số',ms.map(m=>{const g=sysM[m]||{}; return pct(g.orev||0,g.rev||0);}),cssv('--s1')),lineDs('% bill',ms.map(m=>{const g=sysM[m]||{}; return pct(g.obills||0,g.bills||0);}),cssv('--s2'))]},
+    options:{plugins:{tooltip:ttP,datalabels:DL.line(pc1)},scales:{x:{},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+  const row=(k,s)=>[k, fmtN(s.bills), fmtB(s.rev), fmtP(s.rev,tot.rev), fmtM(s.bills?s.rev/s.bills:0), fmtN(s.ph), fmtP(s.ph,s.bills), fmtN(s.cust), fmtP(s.newc,s.cust), fmtP(s.mb,s.rev)];
+  table('t-ec-san',['Sàn / kho','Bill','Doanh số (tr)','% DS Online','ATV (tr)','Bill có SĐT','% có SĐT','Customer','% KH mới','% DS thẻ TV'],
+    keys.map(k=>row('<b>'+sanLbl(k)+'</b> <small style="color:var(--fg-3)">'+k+'</small>',S[k])), row('<b>Tổng Online</b>',tot));
 }
 
 /* ================= PHÂN TÍCH KH 12M ================= */
@@ -1245,6 +1293,7 @@ function render(){
   document.querySelectorAll('.tab').forEach(t=>{ t.style.display = (ECOM() && !ECOM_TABS.includes(t.dataset.v)) ? 'none' : ''; });
   document.querySelectorAll('.scope-sw button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.s===state.scope)));
   document.querySelectorAll('.ch-only').forEach(e=>{ e.style.display = ECOM()?'none':''; });
+  document.querySelectorAll('.ecom-only').forEach(e=>{ e.style.display = ECOM()?'':'none'; });
   const fm=el('fModel'); if(fm && USER.role!=='store'){ fm.style.display = ECOM()?'none':''; if(fm.previousElementSibling&&fm.previousElementSibling.tagName==='LABEL') fm.previousElementSibling.style.display = ECOM()?'none':''; }
   try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view,scope:state.scope})); }catch(e){}
 }

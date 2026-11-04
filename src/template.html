@@ -186,6 +186,17 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <div class="card c6"><p class="ttl">Số bill theo tháng</p><p class="note">Toàn hệ thống theo filter model</p><div class="ch s"><canvas id="c-over-bills"></canvas></div></div>
     <div class="card c6"><p class="ttl">Tỷ lệ đổi voucher sinh nhật (CR) theo tháng</p><p class="note">CR = số KH dùng voucher / số KH được gửi voucher</p><div class="ch s"><canvas id="c-over-cr"></canvas></div></div>
   </div>
+  <div class="ecom-only" id="ecom-block" style="display:none">
+  <h2>Kênh Online theo sàn <small>mỗi kho 902 = một sàn / kênh bán · kỳ đang chọn · chọn 1 sàn ở bộ lọc "Cửa hàng" để xem riêng</small></h2>
+  <div class="kpis" id="ec-kpis"></div>
+  <div class="grid">
+    <div class="card c6"><p class="ttl">Doanh số theo sàn (triệu đồng)</p><p class="note">Kỳ đang chọn · rê chuột xem số bill và % bill có SĐT</p><div class="ch"><canvas id="c-ec-san"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Doanh số theo tháng, xếp chồng theo sàn</p><p class="note">6 sàn lớn nhất, còn lại gộp "Khác" · khi chọn kỳ 1 tháng, biểu đồ hiện 12 tháng gần nhất</p><div class="ch"><canvas id="c-ec-month"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Tỷ lệ bill có SĐT theo tháng</p><p class="note">Bill có Mã KH (SĐT) / tổng bill kênh Online · đơn không có SĐT không chăm sóc sau mua được</p><div class="ch s"><canvas id="c-ec-phone"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Tỷ trọng Online trong toàn hệ thống</p><p class="note">% doanh số và % số bill của kênh Online so với toàn công ty (cửa hàng + event + Online), theo tháng</p><div class="ch s"><canvas id="c-ec-share"></canvas></div></div>
+    <div class="card c12"><p class="ttl">Bảng theo sàn</p><p class="note">Kỳ đang chọn · ATV = doanh số / bill · Customer = số KH có SĐT · % KH mới tính trên Customer · % DS thẻ TV = doanh số bill có hạng thẻ / doanh số sàn</p><div id="t-ec-san"></div></div>
+  </div>
+  </div>
   <details class="def"><summary>Xem định nghĩa &amp; nguồn dữ liệu</summary>
     <ul>
       <li><b>Customer</b> = bill có định danh bằng số điện thoại (Mã KH). <b>Buyer (khách lẻ)</b> = bill không định danh (Mã KH = KL), gồm phần lớn đơn Shopee/TikTok và khách lẻ tại cửa hàng.</li>
