@@ -955,7 +955,7 @@ const fbst = {ch:'', ct:'', tag:'', sev:'', q:''};
 const SEV_LBL = {3:'Nghiêm trọng',2:'Không hài lòng',1:'Góp ý',0:'Chưa có nội dung'};
 const fbCode = r => (r.kho||'').slice(0,3);
 const fbKho = r => { const s=D.stores.find(x=>x.kho.startsWith(fbCode(r)+'-')); return s?s.kho:r.kho; };
-const fbOnl = r => r.grp==='Online' || isOnl(r.kho);   // phản hồi kênh Online: cột Group = Online hoặc kho 902
+const fbOnl = r => isOnl(r.kho);   // phản hồi kênh Online: chỉ theo cửa hàng mã 902 (cột Group 'Online' là kênh tiếp nhận, không phải kênh bán)
 const fbOkStore = r => { if (fbOnl(r)!==ECOM()) return false; if (state.store && fbCode(r)!==storeCode(state.store)) return false; const s=D.stores.find(x=>x.kho.startsWith(fbCode(r)+'-')); return !s || state.models.has(MODELS.includes(s.model)?s.model:'6. Khác'); };
 const fbOkSel = r => (!fbst.ch||r.ch===fbst.ch) && (!fbst.ct||r.ct===fbst.ct) && (!fbst.tag||r.tags.includes(fbst.tag)) && (!fbst.sev||String(r.sev)===fbst.sev) && (!fbst.q||(r.note+' '+r.rep+' '+r.kho).toLowerCase().includes(fbst.q.toLowerCase()));
 const esc = t => String(t||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
