@@ -100,6 +100,7 @@ b["seg_simple"]=np.select([b.seg=="1. KH mới",b.seg=="4. Buyer (khách lẻ)"]
 lap("classified")
 # ---------- aggregations ----------
 b["ph"]=b.makh.where(b.is_cust)
+b["ch"]=np.where(b.kho.astype(str).str.startswith("902-"),"onl","off")   # kênh: Online (Ecom) tách riêng khỏi cửa hàng
 def agg(df,keys):
     g=df.groupby(keys).agg(bills=("PBH","count"),cust=("ph","nunique"),rev=("rev","sum")).reset_index()
     g["rev"]=g.rev.round(0); return g
@@ -107,14 +108,14 @@ out={}
 out["meta"]={"generated":datetime.datetime.now().strftime("%Y-%m-%d %H:%M"),"months":sorted(b.month.unique()),"raw_from":min(raw_months),"models":sorted(b.model.unique()),"cards":sorted(b.card.unique()),"segs":sorted(b.seg.unique())}
 out["seg_month"]=agg(b,["month","kho","model","seg"]).to_dict("records")
 out["seg_store"]=agg(b[b.year>=2025],["year","kho","model","seg"]).to_dict("records")
-out["seg_demo_gt"]=agg(b[b.year>=2025],["year","seg","gt"]).to_dict("records")
-out["seg_demo_age"]=agg(b[b.year>=2025],["year","seg","age"]).to_dict("records")
+out["seg_demo_gt"]=agg(b[b.year>=2025],["year","ch","seg","gt"]).to_dict("records")
+out["seg_demo_age"]=agg(b[b.year>=2025],["year","ch","seg","age"]).to_dict("records")
 out["ttv_month"]=agg(b,["month","kho","model","card"]).to_dict("records")
 out["ttv_store"]=agg(b[b.year>=2025],["year","kho","model","card"]).to_dict("records")
-out["ttv_gt"]=agg(b[b.year>=2025],["year","card","gt"]).to_dict("records")
-out["ttv_age"]=agg(b[b.year>=2025],["year","card","age"]).to_dict("records")
+out["ttv_gt"]=agg(b[b.year>=2025],["year","ch","card","gt"]).to_dict("records")
+out["ttv_age"]=agg(b[b.year>=2025],["year","ch","card","age"]).to_dict("records")
 # membership x segment
-out["ttv_seg"]=agg(b[b.year>=2025],["year","card","seg"]).to_dict("records")
+out["ttv_seg"]=agg(b[b.year>=2025],["year","ch","card","seg"]).to_dict("records")
 lap("agg done")
 # ---------- birthday (SN2023 sheet, CT CRM.2023.xlsx) ----------
 d=pd.read_csv("sn2023.csv",dtype=str,keep_default_na=False); d.columns=[c.strip() for c in d.columns]
@@ -127,22 +128,23 @@ d["gt"]=d["giới tính"].map(lambda x: unicodedata.normalize("NFC",str(x)).stri
 d["age"]=d["độ tuổi"].map(canon_age)
 d["nguon"]=d["Nguồn"].str.strip().replace({"":"Khác"})
 d["phone"]=d.SDT.str.strip().where(d.SDT.str.strip()!="",d["Mã KH"].str.strip())
+d["ch"]=np.where(d.kho.str.startswith("902-"),"onl","off")
 def snagg(df,keys):
     g=df.groupby(keys).agg(sent=("phone","nunique"),redeemed=("tt",lambda s:(s>0).sum()),rev=("tt","sum")).reset_index()
     g["rev"]=g.rev.round(0); return g
 out["sn_month"]=snagg(d,["month","kho","model"]).to_dict("records")
-out["sn_am"]=snagg(d[d.year>=2024],["year","am"]).to_dict("records")
+out["sn_am"]=snagg(d[d.year>=2024],["year","ch","am"]).to_dict("records")
 out["sn_store"]=snagg(d[d.year>=2024],["year","kho","model"]).to_dict("records")
-out["sn_gt"]=snagg(d[d.year>=2024],["year","gt"]).to_dict("records")
-out["sn_age"]=snagg(d[d.year>=2024],["year","age"]).to_dict("records")
-out["sn_nguon"]=snagg(d[d.year>=2024],["year","nguon"]).to_dict("records")
-out["sn_voucher"]=snagg(d[d.year>=2024],["year","Mệnh giá Voucher"]).rename(columns={"Mệnh giá Voucher":"voucher"}).to_dict("records")
+out["sn_gt"]=snagg(d[d.year>=2024],["year","ch","gt"]).to_dict("records")
+out["sn_age"]=snagg(d[d.year>=2024],["year","ch","age"]).to_dict("records")
+out["sn_nguon"]=snagg(d[d.year>=2024],["year","ch","nguon"]).to_dict("records")
+out["sn_voucher"]=snagg(d[d.year>=2024],["year","ch","Mệnh giá Voucher"]).rename(columns={"Mệnh giá Voucher":"voucher"}).to_dict("records")
 print("SN nguon",d.nguon.value_counts().head(6).to_dict()); print("SN months",d.month.min(),d.month.max())
 lap("sn done")
 # store names
 out["stores"]=[{"kho":k,"am":v[0],"model":v[1],"khuvuc":v[2],"tier":v[3]} for k,v in mp.items()]
 # monthly totals
-out["tot_month"]=agg(b,["month"]).to_dict("records")
+out["tot_month"]=agg(b,["month","ch"]).to_dict("records")
 json.dump(out,open("dash.json","w",encoding="utf-8"),ensure_ascii=False,default=str)
 # ---------- checks ----------
 print("bills",len(b)," months",out["meta"]["months"][0],"→",out["meta"]["months"][-1])

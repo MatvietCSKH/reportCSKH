@@ -15,7 +15,7 @@ const SEED_ADMIN = { email: "truc.to@matkinh.com.vn", name: "Trúc Tô", role: "
   salt: "6b319a8229e599022242d0e86ca48fd2", hash: "d7c50d5c218e8e1caf9a5fb6d1e4887bb75db05ccbd9122a592bbdd2c61161b9" };
 const ROLES = { admin: "Quản trị", manager: "Quản lý (Ops)", store: "Cửa hàng" };
 // Các mục báo cáo (tab). Admin luôn xem tất cả; tài khoản khác xem đúng các mục admin đã chọn (user.tabs); chưa chọn = mặc định bên dưới.
-const TABS = [["over", "Tổng quan"], ["seg", "Phân tích KH 12M"], ["ttv", "Thẻ thành viên"], ["sn", "Sinh nhật KH"], ["km", "CTKM"], ["awo", "CTKM AWO tại CH"], ["hh", "Hàng hóa"], ["sms", "SMS / ZNS"], ["xnbh", "XNBH"], ["fb", "Phản hồi KH"], ["call", "Cuộc gọi ra"], ["case", "Ticket khiếu nại"]];
+const TABS = [["over", "Tổng quan"], ["seg", "Phân tích KH 12M"], ["ttv", "Thẻ thành viên"], ["sn", "Sinh nhật KH"], ["km", "CTKM"], ["awo", "CTKM AWO tại CH"], ["hh", "Hàng hóa"], ["sms", "SMS / ZNS"], ["xnbh", "XNBH"], ["fb", "Phản hồi KH"], ["call", "Cuộc gọi ra"], ["case", "Ticket khiếu nại"], ["ecom", "Ecom (kênh Online)"]];
 // Tab "Ticket khiếu nại" nhúng app Case CSKH (site riêng, backend n8n) và đăng nhập một lần:
 //   GET /sso/case  → ký mã 5 phút cho người đang đăng nhập, chuyển tới CASE_URL/#sso=<mã>&embed=1
 //   POST /sso/verify {token} → n8n gọi về để xác minh mã, nhận {email,name,role,store,caseRole}

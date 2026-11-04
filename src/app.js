@@ -1,7 +1,10 @@
 const D = JSON.parse(document.getElementById('data').textContent);
 const USER = window.USER || {role:'admin',name:'',store:''};   // do function đăng nhập chèn vào; mở file HTML trực tiếp = quyền đầy đủ
 const ROLE_LBL = {admin:'Quản trị',manager:'Quản lý (Ops)',store:'Cửa hàng'};
-const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb','call','case'];
+const ALL_TABS = ['over','seg','ttv','sn','km','awo','hh','sms','xnbh','fb','call','case','ecom'];
+// Kênh: Online (kho 902-*) = mục Ecom riêng, gồm các tab ECOM_TABS; các tab còn lại chỉ tính cửa hàng / event / nội bộ (không có Online)
+const ECOM_TABS = ['over','seg','ttv','sn','fb'];
+const isOnl = kho => (kho||'').startsWith('902-');
 // Mục được xem: admin = tất cả; tài khoản khác = danh sách USER.tabs do admin chọn (mặc định: tất cả trừ Hàng hóa & SMS/ZNS)
 const ALLOWED_TABS = USER.role==='admin' ? ALL_TABS : (Array.isArray(USER.tabs) ? ['over',...USER.tabs] : ALL_TABS.filter(t=>!['hh','sms'].includes(t)));
 const HIDDEN_TABS = ALL_TABS.filter(t=>!ALLOWED_TABS.includes(t));
@@ -12,10 +15,15 @@ const CARD_LBL = c => c.replace(/^\d\. /,'');
 const MODELS = D.meta.models;
 const MODEL_LBL = m => (m==='#N/A'||!m) ? '–' : m.replace(/^\d\. /,'');
 const LAST = D.meta.months[D.meta.months.length-1];
-const state = { ptype:'month', year:LAST.slice(0,4), month:parseInt(LAST.slice(5)), quarter:Math.ceil(parseInt(LAST.slice(5))/3), store:'', models:new Set(MODELS), view:'over' };
-try { const s = JSON.parse(localStorage.getItem('cskh-dash')||'{}'); for (const k of ['ptype','year','month','quarter','store','view']) if (s[k]!==undefined) state[k]=s[k]; } catch(e){}
+const state = { ptype:'month', year:LAST.slice(0,4), month:parseInt(LAST.slice(5)), quarter:Math.ceil(parseInt(LAST.slice(5))/3), store:'', models:new Set(MODELS), view:'over', scope:'ch' };
+try { const s = JSON.parse(localStorage.getItem('cskh-dash')||'{}'); for (const k of ['ptype','year','month','quarter','store','view','scope']) if (s[k]!==undefined) state[k]=s[k]; } catch(e){}
+if (USER.role==='store' || HIDDEN_TABS.includes('ecom') || state.scope!=='ecom') state.scope='ch';   // Ecom chỉ cho tài khoản được tick mục Ecom
+const ECOM = () => state.scope==='ecom';
+const okCh = kho => isOnl(kho)===ECOM();                                  // dòng có cột kho: đúng kênh đang xem
+const okChR = r => 'kho' in r ? okCh(r.kho) : ('ch' in r ? r.ch===(ECOM()?'onl':'off') : true);   // dòng toàn hệ thống có cột ch (compute.py)
 if (USER.role==='store'){ state.store = USER.store; state.models = new Set(MODELS); }      // cửa hàng: khoá đúng cửa hàng mình, không lọc model
 if (HIDDEN_TABS.includes(state.view)) state.view='over';
+if (ECOM() && !ECOM_TABS.includes(state.view)) state.view='over';
 const charts = {};
 
 /* ---------- helpers ---------- */
@@ -50,7 +58,7 @@ function chartMonths(){               // single-month periods → trailing 12 mo
 const inChart = (()=>{ let set=null, key=''; return m => { const k=JSON.stringify([state.ptype,state.year,state.month,state.quarter]); if(k!==key){ key=k; set=new Set(chartMonths()); } return set.has(m); }; })();
 const months = chartMonths;
 const storeCode = kho => (kho||'').slice(0,3);
-const okStore = r => !state.store || ('kho' in r ? r.kho===state.store : ('store' in r ? r.store===storeCode(state.store) : true));
+const okStore = r => okChR(r) && (!state.store || ('kho' in r ? r.kho===state.store : ('store' in r ? r.store===storeCode(state.store) : true)));
 const okModel = r => (!('model' in r) || state.models.has(r.model)) && okStore(r);
 const yearsSel = (minY) => state.ptype==='all' ? [2024,2025,2026].filter(y=>y>=minY) : [parseInt((state.ptype==='mtd'||state.ptype==='ytd')?LAST.slice(0,4):state.year)].filter(y=>y>=minY);
 function periodLabel(){ const y=state.year, t=state.ptype; if(t==='month') return 'T'+state.month+'/'+y; if(t==='quarter') return 'Q'+state.quarter+'/'+y; if(t==='year') return 'Năm '+y; if(t==='mtd') return 'MTD · '+mLbl(LAST); if(t==='ytd') return 'YTD · '+LAST.slice(0,4)+' (T1–'+parseInt(LAST.slice(5))+')'; return 'Toàn bộ 2022–2026'; }
@@ -340,7 +348,7 @@ function renderSN(){
 function storeKho(code){ const s=D.stores.find(x=>x.kho.startsWith(code+'-')); return s; }
 function renderContact(){
   const S3=cssv('--s3'), S2=cssv('--s2'), GREY=cssv('--t6'), ACC=cssv('--accent');
-  const okS = code => { const s=storeKho(code); if (state.store && code!==storeCode(state.store)) return false; return !s || state.models.has(s.model) || !MODELS.includes(s.model); };
+  const okS = code => { if (ECOM()) return false; const s=storeKho(code); if (state.store && code!==storeCode(state.store)) return false; return !s || state.models.has(s.model) || !MODELS.includes(s.model); };
   const ctMax=D.contact_month.reduce((m,r)=>r.month>m?r.month:m,'');   // tháng mới nhất có dữ liệu liên hệ (trước đây cố định 2026-09)
   const rowsAll=D.contact_month.filter(r=>r.month<=ctMax&&okS(r.store));
   const rows=rowsAll.filter(r=>inPeriod(r.month)); const rowsC=rowsAll.filter(r=>inChart(r.month));
@@ -414,7 +422,7 @@ function paretoChart(id, items, tot, color){
 const FULL='Full Price';
 const kstate = {camp:'', grp:''};
 try { const s=JSON.parse(localStorage.getItem('cskh-km')||'{}'); Object.assign(kstate, s); } catch(e){}
-const okKho = kho => (!state.store || kho===state.store) && state.models.has(kModel(kho));
+const okKho = kho => !isOnl(kho) && (!state.store || kho===state.store) && state.models.has(kModel(kho));   // CTKM / AWO: không tính kênh Online
 const okProg = p => (!kstate.camp || PCAMP(p)===kstate.camp) && (!kstate.grp || PGRP(p)===kstate.grp);
 const ckPct = (ck,ns) => (ns+ck) ? 100*ck/(ns+ck) : 0;
 const fCK = (ck,ns) => fP1(ckPct(ck,ns));
@@ -899,7 +907,8 @@ const fbst = {ch:'', ct:'', tag:'', sev:'', q:''};
 const SEV_LBL = {3:'Nghiêm trọng',2:'Không hài lòng',1:'Góp ý',0:'Chưa có nội dung'};
 const fbCode = r => (r.kho||'').slice(0,3);
 const fbKho = r => { const s=D.stores.find(x=>x.kho.startsWith(fbCode(r)+'-')); return s?s.kho:r.kho; };
-const fbOkStore = r => { if (state.store && fbCode(r)!==storeCode(state.store)) return false; const s=D.stores.find(x=>x.kho.startsWith(fbCode(r)+'-')); return !s || state.models.has(MODELS.includes(s.model)?s.model:'6. Khác'); };
+const fbOnl = r => r.grp==='Online' || isOnl(r.kho);   // phản hồi kênh Online: cột Group = Online hoặc kho 902
+const fbOkStore = r => { if (fbOnl(r)!==ECOM()) return false; if (state.store && fbCode(r)!==storeCode(state.store)) return false; const s=D.stores.find(x=>x.kho.startsWith(fbCode(r)+'-')); return !s || state.models.has(MODELS.includes(s.model)?s.model:'6. Khác'); };
 const fbOkSel = r => (!fbst.ch||r.ch===fbst.ch) && (!fbst.ct||r.ct===fbst.ct) && (!fbst.tag||r.tags.includes(fbst.tag)) && (!fbst.sev||String(r.sev)===fbst.sev) && (!fbst.q||(r.note+' '+r.rep+' '+r.kho).toLowerCase().includes(fbst.q.toLowerCase()));
 const esc = t => String(t||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function renderFB(){
@@ -909,7 +918,7 @@ function renderFB(){
   const PAL=[S1,S3,S4,S2,cssv('--t3'),cssv('--t2'),cssv('--t5'),cssv('--s8')];
   // bill trong kỳ để tính tỷ lệ / 10.000 bill
   const billBy={}; let billT=0; const KD=(typeof KDAY!=='undefined')?KDAY:[];
-  for(const r of KD){ if(!inPeriod(r.m)) continue; const c=r.kho.slice(0,3); if(state.store&&c!==storeCode(state.store)) continue; if(!state.models.has(kModel(r.kho))) continue; billBy[c]=(billBy[c]||0)+r.b; billT+=r.b; }
+  for(const r of KD){ if(!inPeriod(r.m)) continue; if(!okCh(r.kho)) continue; const c=r.kho.slice(0,3); if(state.store&&c!==storeCode(state.store)) continue; if(!state.models.has(kModel(r.kho))) continue; billBy[c]=(billBy[c]||0)+r.b; billT+=r.b; }
   const n=rows.length, sev3=rows.filter(r=>r.sev===3).length, rep=rows.filter(r=>r.cs).length, gg=rows.filter(r=>r.ch==='Google').length;
   const noSt=rows.filter(r=>!r.st).length;
   el('fb-kpis').innerHTML=[
@@ -1228,11 +1237,16 @@ function renderCase(){
 }
 function render(){
   if (HIDDEN_TABS.includes(state.view)) state.view='over';
+  if (ECOM() && !ECOM_TABS.includes(state.view)) state.view='over';
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on', v.id==='v-'+state.view));
   document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected', t.dataset.v===state.view));
   ({over:renderOver,seg:renderSeg,ttv:renderTTV,sn:()=>{renderSN();renderContact();},km:renderKM,awo:renderAWO,hh:renderHH,sms:renderSMS,xnbh:renderXNBH,fb:renderFB,call:renderCall,case:renderCase})[state.view]();
-  el('plabel').textContent = periodLabel() + (state.store? ' · '+state.store : '');
-  try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view})); }catch(e){}
+  el('plabel').textContent = (ECOM()?'Ecom · ':'') + periodLabel() + (state.store? ' · '+state.store : '');
+  document.querySelectorAll('.tab').forEach(t=>{ t.style.display = (ECOM() && !ECOM_TABS.includes(t.dataset.v)) ? 'none' : ''; });
+  document.querySelectorAll('.scope-sw button').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.s===state.scope)));
+  document.querySelectorAll('.ch-only').forEach(e=>{ e.style.display = ECOM()?'none':''; });
+  const fm=el('fModel'); if(fm && USER.role!=='store'){ fm.style.display = ECOM()?'none':''; if(fm.previousElementSibling&&fm.previousElementSibling.tagName==='LABEL') fm.previousElementSibling.style.display = ECOM()?'none':''; }
+  try{ localStorage.setItem('cskh-dash', JSON.stringify({ptype:state.ptype,year:state.year,month:state.month,quarter:state.quarter,store:state.store,view:state.view,scope:state.scope})); }catch(e){}
 }
 document.querySelectorAll('.tab').forEach(t=>{ if (HIDDEN_TABS.includes(t.dataset.v)) t.remove(); else t.addEventListener('click',()=>{state.view=t.dataset.v; render();}); });
 HIDDEN_TABS.forEach(v=>{ const s=el('v-'+v); if(s){ s.hidden=true; s.classList.remove('on'); } });
@@ -1241,7 +1255,10 @@ if (USER.role!=='admin'){ const ins=el('fb-insight'); if(ins) ins.remove(); }   
 const YEARS=[...new Set(D.meta.months.map(m=>m.slice(0,4)))];
 el('fYear').innerHTML=YEARS.map(y=>`<option value="${y}">${y}</option>`).join('');
 el('fMonth').innerHTML=Array.from({length:12},(_,i)=>`<option value="${i+1}">Tháng ${i+1}</option>`).join('');
-el('fStore').innerHTML='<option value="">Tất cả cửa hàng</option>'+D.stores.filter(s=>/^\d{3}-/.test(s.kho)).sort((a,b)=>a.kho.localeCompare(b.kho)).map(s=>`<option value="${s.kho}">${s.kho}</option>`).join('');
+function fillStores(){ el('fStore').innerHTML='<option value="">'+(ECOM()?'Tất cả kênh Online':'Tất cả cửa hàng')+'</option>'+D.stores.filter(s=>/^\d{3}-/.test(s.kho)&&okCh(s.kho)).sort((a,b)=>a.kho.localeCompare(b.kho)).map(s=>`<option value="${s.kho}">${s.kho}</option>`).join(''); if(state.store&&!okCh(state.store)) state.store=''; }
+fillStores();
+(function scopeSwitch(){ const sw=el('scopeSw'); if(!sw) return; if(USER.role==='store'||HIDDEN_TABS.includes('ecom')){ sw.remove(); return; }
+  sw.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{ if(state.scope===b.dataset.s) return; state.scope=b.dataset.s; state.store=''; if(ECOM()&&!ECOM_TABS.includes(state.view)) state.view='over'; fillStores(); syncFilters(); render(); })); })();
 function syncFilters(){
   el('fType').value=state.ptype; el('fYear').value=state.year; el('fMonth').value=state.month; el('fQuarter').value=state.quarter; el('fStore').value=state.store;
   el('wYear').hidden = ['mtd','ytd','all'].includes(state.ptype); el('wMonth').hidden = state.ptype!=='month'; el('wQuarter').hidden = state.ptype!=='quarter';

@@ -45,6 +45,7 @@ header.top .sub{color:var(--band-fg-2);font-size:12.5px;margin-top:4px;max-width
 header.top .sub b{color:var(--deep-blue);background:var(--accent-yellow);padding:2px 8px;border-radius:999px;font-weight:700}
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);padding:10px 14px;border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);box-shadow:var(--shadow);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
 .tabs{display:flex;gap:4px;flex-wrap:wrap}
+.scope-sw{display:inline-flex;border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--surface-2);margin-right:4px}.scope-sw button{font:inherit;font-size:12px;font-weight:700;border:0;background:transparent;color:var(--fg-2);padding:6px 12px;border-radius:999px;cursor:pointer}.scope-sw button[aria-pressed="true"]{background:var(--accent-yellow);color:#011e60}
 .tab{border:1px solid transparent;background:transparent;color:var(--fg-2);font:inherit;font-weight:600;padding:8px 14px;border-radius:999px;cursor:pointer}
 .tab:hover{background:var(--surface-2)}
 .tab[aria-selected="true"]{background:var(--deep-blue);color:#fff;border-color:var(--deep-blue);box-shadow:inset 0 -3px 0 var(--accent-yellow)}
@@ -142,12 +143,13 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
   <span class="div" aria-hidden="true"></span>
   <div class="ttl">
     <h1>Dashboard CSKH</h1>
-    <div class="sub"><b id="plabel"></b> · Phân tích khách hàng · Thẻ thành viên · Sinh nhật · CTKM · Hàng hóa — nguồn: BC21 (Ebiz) &amp; CT CRM. Số liệu chưa trừ VAT. Cập nhật <span id="gen"></span>.</div>
+    <div class="sub"><b id="plabel"></b> · Phân tích khách hàng · Thẻ thành viên · Sinh nhật · CTKM · Hàng hóa · Ecom tách riêng — nguồn: BC21 (Ebiz) &amp; CT CRM. Số liệu chưa trừ VAT. Cập nhật <span id="gen"></span>.</div>
   </div>
   <div class="userbar" id="userbar"></div>
 </header>
 
 <div class="bar">
+  <div class="scope-sw" id="scopeSw" role="group" aria-label="Kênh" title="Cửa hàng = CH / event / nội bộ, không gồm Online · Ecom = kênh Online (kho 902)"><button data-s="ch" aria-pressed="true">Cửa hàng</button><button data-s="ecom" aria-pressed="false">Ecom</button></div>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" data-v="over" aria-selected="true">Tổng quan</button>
     <button class="tab" role="tab" data-v="seg">Phân tích KH 12M</button>
@@ -244,8 +246,8 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
     <div class="card c12"><p class="ttl">Bảng theo tháng</p><div class="tw" id="t-sn-month"></div></div>
     <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Theo kỳ, cửa hàng và model đang chọn ở bộ lọc — sắp theo doanh số voucher</p><div class="tw" id="t-sn-store"></div></div>
   </div>
-  <h2 id="ct-h">Cửa hàng chủ động liên hệ KH sinh nhật <small>từ file Store - Data CSKH (CH ghi nhận NV gọi / ngày / hình thức)</small></h2>
-  <div class="kpis" id="ct-kpis"></div>
+  <h2 id="ct-h" class="ch-only">Cửa hàng chủ động liên hệ KH sinh nhật <small>từ file Store - Data CSKH (CH ghi nhận NV gọi / ngày / hình thức)</small></h2>
+  <div class="kpis ch-only" id="ct-kpis"></div>
   <div class="grid">
     <div class="card c6"><p class="ttl">Tỷ lệ KH trong danh sách được CH liên hệ, theo tháng</p><p class="note">% dòng có ghi nhận liên hệ trên tổng danh sách CH nhận</p><div class="ch s"><canvas id="c-ct-pct"></canvas></div></div>
     <div class="card c6"><p class="ttl">CR: có liên hệ vs không liên hệ, theo tháng</p><p class="note">% KH dùng voucher sinh nhật trong từng nhóm</p><div class="ch s"><canvas id="c-ct-cr"></canvas></div><div class="legend" id="lg-ct-cr"></div></div>
