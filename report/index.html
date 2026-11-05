@@ -74,7 +74,7 @@ h2{font-size:18px;font-weight:800;margin:8px 0 12px;letter-spacing:-.2px;display
 h2::before{content:"";width:14px;height:14px;border-radius:50%;background:var(--accent-yellow);flex:0 0 auto}
 h2 small{color:var(--fg-3);font-weight:400;margin-left:8px}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-bottom:16px}
-#over-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}@media (max-width:1100px){#over-kpis{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}}
+#over-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}#seg-kpis{grid-template-columns:repeat(5,minmax(0,1fr))}@media (max-width:1100px){#over-kpis,#seg-kpis{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px;min-width:0;box-shadow:var(--shadow)}
 .kpi .l{font-size:12px;font-weight:600;color:var(--fg-2)}
 .kpi .v{font-family:var(--font-cond);font-size:28px;font-weight:800;line-height:1.1;margin-top:6px;font-variant-numeric:tabular-nums;letter-spacing:-.4px}
@@ -227,11 +227,12 @@ td .pbar{display:inline-block;height:6px;border-radius:3px;background:var(--s3);
   <div class="kpis" id="seg-kpis"></div>
   <div class="grid">
     <div class="card c8"><p class="ttl">Số khách hàng theo nhóm, theo tháng</p><p class="note">Customer theo trạng thái; Buyer tính theo bill</p><div class="ch"><canvas id="c-seg-month"></canvas></div><div class="legend" id="lg-seg"></div></div>
-    <div class="card c4"><p class="ttl">Tỷ trọng doanh số: KH mới vs KH cũ</p><p class="note">KH cũ = Quay lại ≤12T + KH cũ &gt;12T</p><div class="ch"><canvas id="c-seg-pie"></canvas></div><div class="legend" id="lg-seg-pie"></div></div>
-    <div class="card c6"><p class="ttl">% nhóm KH theo tháng</p><p class="note">Trên tổng số Customer có định danh</p><div class="ch"><canvas id="c-seg-pct"></canvas></div></div>
-    <div class="card c6"><p class="ttl">ATV theo nhóm KH (triệu đồng)</p><p class="note">Doanh số / số KH trong tháng</p><div class="ch"><canvas id="c-seg-atv"></canvas></div></div>
-    <div class="card c6"><p class="ttl">Nhóm KH theo giới tính</p><p class="note">Số KH, theo năm đang chọn</p><div class="ch s"><canvas id="c-seg-gt"></canvas></div></div>
-    <div class="card c6"><p class="ttl">Nhóm KH theo độ tuổi</p><p class="note">Số KH, theo năm đang chọn</p><div class="ch s"><canvas id="c-seg-age"></canvas></div></div>
+    <div class="card c4"><p class="ttl">Tỷ trọng doanh số: KH mới vs KH cũ</p><p class="note">Kỳ đang chọn · KH cũ = Quay lại ≤12T + KH cũ &gt;12T</p><div class="ch"><canvas id="c-seg-pie"></canvas></div><div class="legend" id="lg-seg-pie"></div></div>
+    <div class="card c4"><p class="ttl">Tỷ trọng số lượng: KH mới vs KH cũ</p><p class="note">Kỳ đang chọn · số Customer; khách lẻ tính theo bill</p><div class="ch"><canvas id="c-seg-cnt"></canvas></div><div class="legend" id="lg-seg-cnt"></div></div>
+    <div class="card c4"><p class="ttl">% nhóm KH theo tháng</p><p class="note">Trên tổng số Customer có định danh</p><div class="ch"><canvas id="c-seg-pct"></canvas></div></div>
+    <div class="card c4"><p class="ttl">ATV theo nhóm KH (triệu đồng)</p><p class="note">Doanh số / số KH trong tháng</p><div class="ch"><canvas id="c-seg-atv"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Nhóm KH theo giới tính</p><p class="note">Số KH, theo năm đang chọn</p><div class="ch"><canvas id="c-seg-gt"></canvas></div></div>
+    <div class="card c6"><p class="ttl">Nhóm KH theo độ tuổi</p><p class="note">Số KH, theo năm đang chọn</p><div class="ch"><canvas id="c-seg-age"></canvas></div></div>
     <div class="card c12"><p class="ttl">Bảng theo tháng</p><p class="note">Số KH · doanh số (triệu) · ATV (triệu) từng nhóm</p><div class="tw" id="t-seg-month"></div></div>
     <div class="card c12"><p class="ttl">Theo cửa hàng</p><p class="note">Theo kỳ, cửa hàng và model đang chọn ở bộ lọc — sắp theo tổng doanh số</p><div class="tw" id="t-seg-store"></div></div>
   </div>
@@ -775,6 +776,11 @@ function renderSeg(){
   mk('c-seg-pie',{type:'doughnut',data:{labels:['KH mới','KH cũ','Buyer'],datasets:[{data:[newRev,oldRev,buyRev],backgroundColor:[SC['1. KH mới'],SC['2. Quay lại ≤12T'],SC['4. Buyer (khách lẻ)']],borderColor:cssv('--surface'),borderWidth:2}]},
     options:{cutout:'58%',plugins:{datalabels:DL.pie(revTot),tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtB(c.parsed)}  tr (${fmtP(c.parsed,revTot)})`}}}}});
   legend('lg-seg-pie',[['KH mới '+fmtP(newRev,revTot),SC['1. KH mới']],['KH cũ '+fmtP(oldRev,revTot),SC['2. Quay lại ≤12T']],['Buyer '+fmtP(buyRev,revTot),SC['4. Buyer (khách lẻ)']]]);
+  // tỷ trọng theo số lượng: Customer KH mới / KH cũ (quay lại + >12T) và số bill khách lẻ
+  const newN=agg['1. KH mới'].n, oldN=agg['2. Quay lại ≤12T'].n+agg['3. KH cũ >12T'].n, buyN=agg['4. Buyer (khách lẻ)'].n, totN=newN+oldN+buyN;
+  mk('c-seg-cnt',{type:'doughnut',data:{labels:['KH mới','KH cũ','Buyer'],datasets:[{data:[newN,oldN,buyN],backgroundColor:[SC['1. KH mới'],SC['2. Quay lại ≤12T'],SC['4. Buyer (khách lẻ)']],borderColor:cssv('--surface'),borderWidth:2}]},
+    options:{cutout:'58%',plugins:{datalabels:DL.pie(totN),tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtN(c.parsed)} ${c.label==='Buyer'?'bill':'KH'} (${fmtP(c.parsed,totN)})`}}}}});
+  legend('lg-seg-cnt',[['KH mới '+fmtN(newN)+' · '+fmtP(newN,totN),SC['1. KH mới']],['KH cũ '+fmtN(oldN)+' · '+fmtP(oldN,totN),SC['2. Quay lại ≤12T']],['Buyer '+fmtN(buyN)+' bill · '+fmtP(buyN,totN),SC['4. Buyer (khách lẻ)']]]);
   const S3=SEGS.slice(0,3);
   mk('c-seg-pct',{type:'bar',data:{labels:lbl,datasets:S3.map(s=>barDs(SEG_LBL[s],ms.map(m=>{const t=S3.reduce((a,x)=>a+get(m,x).cust,0);return pct(get(m,s).cust,t);}),SC[s],{stack:'a'}))},
     options:{plugins:{tooltip:ttP},scales:{x:{stacked:true},y:{stacked:true,max:100,ticks:{callback:v=>v+'%'}}}}});
@@ -798,7 +804,7 @@ function renderSeg(){
   const srows=Object.entries(stores).sort((a,b)=>b[1].rev-a[1].rev); const smax=srows.length?srows[0][1].rev:0;
   const sm={}; D.stores.forEach(s=>sm[s.kho]=s);
   table('t-seg-store',['Cửa hàng','Model','AM',...SEGS.map(s=>SEG_LBL[s]),'% KH mới','Doanh số (tr)'],
-    srows.map(([kho,o])=>{ const c=S3.reduce((a,s)=>a+((o[s]||{}).cust||0),0); return [kho,MODEL_LBL((sm[kho]||{}).model||''),(sm[kho]||{}).am||'',...SEGS.map(s=>fmtN(segCnt(o[s]||{bills:0,cust:0},s))),fmtP(((o['1. KH mới']||{}).cust||0),c),bar(fmtB(o.rev),smax)]; }));
+    srows.map(([kho,o])=>{ const c=S3.reduce((a,s)=>a+((o[s]||{}).cust||0),0); return [kho,MODEL_LBL((sm[kho]||{}).model||''),(sm[kho]||{}).am||'',...SEGS.map(s=>fmtN(segCnt(o[s]||{bills:0,cust:0},s))),fmtP(((o['1. KH mới']||{}).cust||0),c),fmtB(o.rev)+`<span class="pbar" style="width:${smax?Math.round(60*o.rev/smax):0}px"></span>`]; }));
 }
 
 /* ================= THẺ THÀNH VIÊN ================= */

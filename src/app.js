@@ -283,6 +283,11 @@ function renderSeg(){
   mk('c-seg-pie',{type:'doughnut',data:{labels:['KH mới','KH cũ','Buyer'],datasets:[{data:[newRev,oldRev,buyRev],backgroundColor:[SC['1. KH mới'],SC['2. Quay lại ≤12T'],SC['4. Buyer (khách lẻ)']],borderColor:cssv('--surface'),borderWidth:2}]},
     options:{cutout:'58%',plugins:{datalabels:DL.pie(revTot),tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtB(c.parsed)}  tr (${fmtP(c.parsed,revTot)})`}}}}});
   legend('lg-seg-pie',[['KH mới '+fmtP(newRev,revTot),SC['1. KH mới']],['KH cũ '+fmtP(oldRev,revTot),SC['2. Quay lại ≤12T']],['Buyer '+fmtP(buyRev,revTot),SC['4. Buyer (khách lẻ)']]]);
+  // tỷ trọng theo số lượng: Customer KH mới / KH cũ (quay lại + >12T) và số bill khách lẻ
+  const newN=agg['1. KH mới'].n, oldN=agg['2. Quay lại ≤12T'].n+agg['3. KH cũ >12T'].n, buyN=agg['4. Buyer (khách lẻ)'].n, totN=newN+oldN+buyN;
+  mk('c-seg-cnt',{type:'doughnut',data:{labels:['KH mới','KH cũ','Buyer'],datasets:[{data:[newN,oldN,buyN],backgroundColor:[SC['1. KH mới'],SC['2. Quay lại ≤12T'],SC['4. Buyer (khách lẻ)']],borderColor:cssv('--surface'),borderWidth:2}]},
+    options:{cutout:'58%',plugins:{datalabels:DL.pie(totN),tooltip:{callbacks:{label:c=>` ${c.label}: ${fmtN(c.parsed)} ${c.label==='Buyer'?'bill':'KH'} (${fmtP(c.parsed,totN)})`}}}}});
+  legend('lg-seg-cnt',[['KH mới '+fmtN(newN)+' · '+fmtP(newN,totN),SC['1. KH mới']],['KH cũ '+fmtN(oldN)+' · '+fmtP(oldN,totN),SC['2. Quay lại ≤12T']],['Buyer '+fmtN(buyN)+' bill · '+fmtP(buyN,totN),SC['4. Buyer (khách lẻ)']]]);
   const S3=SEGS.slice(0,3);
   mk('c-seg-pct',{type:'bar',data:{labels:lbl,datasets:S3.map(s=>barDs(SEG_LBL[s],ms.map(m=>{const t=S3.reduce((a,x)=>a+get(m,x).cust,0);return pct(get(m,s).cust,t);}),SC[s],{stack:'a'}))},
     options:{plugins:{tooltip:ttP},scales:{x:{stacked:true},y:{stacked:true,max:100,ticks:{callback:v=>v+'%'}}}}});
@@ -306,7 +311,7 @@ function renderSeg(){
   const srows=Object.entries(stores).sort((a,b)=>b[1].rev-a[1].rev); const smax=srows.length?srows[0][1].rev:0;
   const sm={}; D.stores.forEach(s=>sm[s.kho]=s);
   table('t-seg-store',['Cửa hàng','Model','AM',...SEGS.map(s=>SEG_LBL[s]),'% KH mới','Doanh số (tr)'],
-    srows.map(([kho,o])=>{ const c=S3.reduce((a,s)=>a+((o[s]||{}).cust||0),0); return [kho,MODEL_LBL((sm[kho]||{}).model||''),(sm[kho]||{}).am||'',...SEGS.map(s=>fmtN(segCnt(o[s]||{bills:0,cust:0},s))),fmtP(((o['1. KH mới']||{}).cust||0),c),bar(fmtB(o.rev),smax)]; }));
+    srows.map(([kho,o])=>{ const c=S3.reduce((a,s)=>a+((o[s]||{}).cust||0),0); return [kho,MODEL_LBL((sm[kho]||{}).model||''),(sm[kho]||{}).am||'',...SEGS.map(s=>fmtN(segCnt(o[s]||{bills:0,cust:0},s))),fmtP(((o['1. KH mới']||{}).cust||0),c),fmtB(o.rev)+`<span class="pbar" style="width:${smax?Math.round(60*o.rev/smax):0}px"></span>`]; }));
 }
 
 /* ================= THẺ THÀNH VIÊN ================= */
