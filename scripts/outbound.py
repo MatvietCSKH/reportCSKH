@@ -219,8 +219,12 @@ def main():
     targets.update(tg_q4)
     days = {d: r for d, r in days.items() if d >= "2026-01-01"}        # trang chỉ theo dõi từ 2026
     last = max(days) if days else datetime.date.today().isoformat()
+    # quý Q4: tính từ ngày đầu tiên có log tổng đài (19/10/2026) — bỏ các ngày onboarding chưa có KPI / chưa gọi
+    q4_start = min(q4_days).isoformat() if q4_days else "2100-01-01"
+    q4_m1 = q4_start[:8] + "01"
+    days = {d: r for d, r in days.items() if not (q4_m1 <= d < q4_start)}
     for d in set(targets) | set(days):
-        if d < "2026-01-01" or d > last: continue
+        if d < "2026-01-01" or d > last or (q4_m1 <= d < q4_start): continue
         r = days.setdefault(d, {"d": d, "src": "none", "calls": 0, "ans": 0, "eff": 0, "talk": 0, "uniq": 0, "full": False, "p": {}, "h": {}, "b": [0] * 6})
         r["target"] = targets.get(d, 0)
     daily = [days[d] for d in sorted(days)]
