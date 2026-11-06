@@ -106,8 +106,17 @@ def read_q4_log(path):
     lg["t"] = pd.to_datetime(lg["t"], errors="coerce"); lg = lg[lg["t"].notna()].copy()
     lg["phone"] = lg["phone"].map(norm_phone); lg["talk_s"] = pd.to_numeric(lg["sec"], errors="coerce").fillna(0)
     lg["eff"] = lg["talk_s"] >= 20; lg["d"] = lg["t"].dt.date
-    k = pd.read_excel(path, sheet_name="2026", header=None, skiprows=2).iloc[:, :8]
-    k.columns = ["week", "day", "wd", "dom", "target", "done", "pass", "note"]
+    raw = pd.read_excel(path, sheet_name="2026", header=None)
+    # tìm cột theo tiêu đề (2 dòng đầu) để không lệch khi file chèn thêm cột (vd "Month")
+    def col(*names):
+        for j in range(raw.shape[1]):
+            for i in range(min(2, len(raw))):
+                v = str(raw.iat[i, j]).strip().lower()
+                if v in names: return j
+        return None
+    jd, jt = col("day"), col("target", "targer")
+    if jd is None or jt is None: raise SystemExit("outbound: không tìm thấy cột Day/Target trong sheet 2026")
+    k = pd.DataFrame({"day": raw.iloc[2:, jd], "target": pd.to_numeric(raw.iloc[2:, jt], errors="coerce")})
     k["day"] = pd.to_datetime(k["day"], errors="coerce")
     tg = {d.date().isoformat(): int(t) for d, t in zip(k["day"], k["target"]) if pd.notna(d) and pd.notna(t)}
     return lg, tg
